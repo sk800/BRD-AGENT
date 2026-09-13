@@ -71,6 +71,19 @@ def test_extract_image_rejects_invalid_image(tmp_path):
         image_extractor.extract_image(str(source))
 
 
+def test_extract_image_rejects_decompression_bomb(tmp_path, monkeypatch):
+    source = tmp_path / "large-image.png"
+    source.write_bytes(b"image")
+
+    def raise_decompression_bomb(_path):
+        raise Image.DecompressionBombError("image too large")
+
+    monkeypatch.setattr(image_extractor.Image, "open", raise_decompression_bomb)
+
+    with pytest.raises(ValueError, match="Invalid image file"):
+        image_extractor.extract_image(str(source))
+
+
 def test_extract_image_returns_empty_ocr_text_when_ocr_fails(
     tmp_path,
     monkeypatch,

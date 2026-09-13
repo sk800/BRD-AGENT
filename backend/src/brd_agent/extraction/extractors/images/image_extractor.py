@@ -53,7 +53,11 @@ def extract_image(file_path: str) -> dict:
     try:
         with Image.open(path) as image:
             image.verify()
-    except (UnidentifiedImageError, OSError) as exc:
+    except (
+        Image.DecompressionBombError,
+        UnidentifiedImageError,
+        OSError,
+    ) as exc:
         raise ValueError(f"Invalid image file: {path.name}") from exc
 
     # Preserve the original image
