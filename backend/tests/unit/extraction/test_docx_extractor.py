@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from docx import Document
+from PIL import Image
+import pytest
 
 from brd_agent.extraction.extractors.docx.docx_extractor import extract_docx
 
@@ -40,3 +42,41 @@ def test_extract_docx_returns_heading_paragraph_and_table(tmp_path: Path):
     assert table_element["content"]["rows"] == [
         ["Uploads", "High"],
     ]
+
+
+def test_extract_docx_preserves_embedded_images(tmp_path: Path, monkeypatch):
+    source = tmp_path / "requirements.docx"
+    image_source = tmp_path / "diagram.png"
+    Image.new("RGB", (20, 20), "white").save(image_source)
+
+    document = Document()
+    document.add_picture(str(image_source))
+    document.save(source)
+
+    output_dir = tmp_path / "output"
+    monkeypatch.setattr(
+        "brd_agent.extraction.extractors.docx.docx_extractor.IMAGE_DIR",
+        output_dir,
+    )
+
+    result = extract_docx(str(source))
+
+    figure = result["elements"][0]
+    assert figure["type"] == "figure"
+    assert Path(figure["content"]["image_path"]).is_file()
+
+
+def test_extract_docx_rejects_oversized_file(tmp_path: Path, monkeypatch):
+    source = tmp_path / "large.docx"
+    source.write_bytes(b"x" * 10)
+
+    class SmallFileSettings:
+        max_file_size_mb = 0
+
+    monkeypatch.setattr(
+        "brd_agent.extraction.extractors.docx.docx_extractor.get_settings",
+        lambda: SmallFileSettings(),
+    )
+
+    with pytest.raises(ValueError, match="DOCX exceeds"):
+        extract_docx(str(source))

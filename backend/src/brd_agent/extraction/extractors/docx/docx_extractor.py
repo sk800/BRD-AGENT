@@ -1,4 +1,5 @@
-
+import logging
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
@@ -6,10 +7,13 @@ from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.oxml.ns import qn
+from PIL import Image, UnidentifiedImageError
+
+from brd_agent.core.config import get_settings
 
 
+logger = logging.getLogger(__name__)
 IMAGE_DIR = Path("output/images")
-IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _id():
@@ -31,6 +35,14 @@ def _blocks(document):
 
 def extract_docx(file_path: str) -> dict:
     path = Path(file_path)
+    settings = get_settings()
+    max_bytes = settings.max_file_size_mb * 1024 * 1024
+
+    if path.stat().st_size > max_bytes:
+        raise ValueError(
+            f"DOCX exceeds the configured {settings.max_file_size_mb}MB limit"
+        )
+
     document = Document(str(path))
     elements = []
 
@@ -91,7 +103,30 @@ def extract_docx(file_path: str) -> dict:
                             / f"{path.stem}_{image_id}{extension}"
                         )
 
-                        image_path.write_bytes(image.blob)
+                        image_bytes = image.blob
+                        if len(image_bytes) > max_bytes:
+                            raise ValueError(
+                                f"Embedded image exceeds the configured {settings.max_file_size_mb}MB limit"
+                            )
+
+                        try:
+                            with Image.open(BytesIO(image_bytes)) as embedded_image:
+                                embedded_image.verify()
+                        except (
+                            Image.DecompressionBombError,
+                            UnidentifiedImageError,
+                            OSError,
+                        ) as exc:
+                            logger.warning(
+                                "Skipping invalid embedded image in %s",
+                                path,
+                            )
+                            raise ValueError(
+                                f"Invalid embedded image in {path.name}"
+                            ) from exc
+
+                        IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+                        image_path.write_bytes(image_bytes)
 
                         elements.append({
                             "element_id": image_id,
