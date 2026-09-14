@@ -11,6 +11,7 @@ interface ChatAreaProps {
   onSend: (text: string, files: File[]) => Promise<void>;
   loading?: boolean;
   isNewChat?: boolean;
+  sendError?: string | null;
 }
 
 export function ChatArea({
@@ -18,6 +19,7 @@ export function ChatArea({
   onSend,
   loading,
   isNewChat,
+  sendError,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +88,14 @@ export function ChatArea({
           </div>
         )}
       </div>
+
+      {sendError && (
+        <div className="px-4 pb-2">
+          <div className="mx-auto max-w-3xl rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {sendError}
+          </div>
+        </div>
+      )}
 
       {/* Input */}
       <ChatInput onSend={onSend} disabled={loading} />

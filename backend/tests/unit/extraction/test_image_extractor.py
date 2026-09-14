@@ -100,4 +100,6 @@ def test_extract_image_returns_empty_ocr_text_when_ocr_fails(
 
     result = image_extractor.extract_image(str(source))
 
-    assert result["elements"][0]["content"]["ocr_text"] == ""
+    content = result["elements"][0]["content"]
+    assert content["ocr_text"] == ""
+    assert content["ocr_warning"] == "OCR unavailable"

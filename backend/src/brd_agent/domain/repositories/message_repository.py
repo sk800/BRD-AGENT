@@ -1,6 +1,7 @@
 import uuid
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ReturnDocument
 
 from brd_agent.domain.models.chat import AttachmentInDB, MessageInDB, build_message_document
 
@@ -27,6 +28,29 @@ class MessageRepository:
         )
         await self._collection.insert_one(document)
         return MessageInDB.model_validate(document)
+
+    async def update_extraction_results(
+        self,
+        message_id: str,
+        user_id: str,
+        extracted_documents: list[dict],
+        extraction_errors: list[dict],
+        extraction_status: str,
+    ) -> MessageInDB | None:
+        result = await self._collection.find_one_and_update(
+            {"_id": message_id, "user_id": user_id},
+            {
+                "$set": {
+                    "extracted_documents": extracted_documents,
+                    "extraction_errors": extraction_errors,
+                    "extraction_status": extraction_status,
+                }
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        if result is None:
+            return None
+        return MessageInDB.model_validate(result)
 
     async def list_by_conversation(
         self,

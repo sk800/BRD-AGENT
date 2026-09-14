@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Callable
+
+logger = logging.getLogger("brd_agent.extraction")
 
 
 TEXT_FILES = frozenset({
@@ -170,6 +173,48 @@ def _get_extractor(extension: str) -> Extractor:
     )
 
 
+def resolve_extraction_route(file_path: str | Path) -> list[str]:
+    """Return the ordered extraction path that will be followed for a file."""
+
+    path = Path(file_path).expanduser().resolve()
+    extension = path.suffix.lower()
+    route = ["gateway", f"extension:{extension or 'none'}"]
+
+    if extension in TEXT_FILES:
+        route.extend(["category:text", "extractor:text.extract_text"])
+    elif extension in IMAGE_FILES:
+        route.extend(["category:image", "extractor:images.extract_image"])
+    elif extension in SPREADSHEET_FILES:
+        route.extend(
+            ["category:spreadsheet", "extractor:spreadsheet.extract_spreadsheet"]
+        )
+    elif extension in EMAIL_FILES:
+        route.extend(["category:email", "extractor:email.extract_email"])
+    elif extension in HTML_FILES:
+        route.extend(["category:html", "extractor:web.extract_html"])
+    elif extension == ".docx":
+        route.extend(["category:docx", "extractor:docx.extract_docx"])
+    elif extension == ".pptx":
+        route.extend(["category:pptx", "extractor:pptx.extract_pptx"])
+    elif extension == ".pdf":
+        route.append("category:pdf")
+        pdf_type = detect_pdf_type(path)
+        route.append(f"detect_pdf_type:{pdf_type}")
+        if pdf_type == "digital":
+            route.append("extractor:pdf.digital_pdf.extract_digital_pdf")
+        else:
+            route.append("extractor:pdf.scanned_pdf.extract_scanned_pdf")
+    else:
+        route.append("error:unsupported_file_type")
+
+    return route
+
+
+def format_extraction_route(route: list[str]) -> str:
+    """Format a route list for terminal output."""
+    return " -> ".join(route)
+
+
 def route_file(file_path: str | Path) -> dict:
     """Select and run the correct extractor for one file."""
 
@@ -179,9 +224,23 @@ def route_file(file_path: str | Path) -> dict:
         raise FileNotFoundError(path)
 
     extension = path.suffix.lower()
-    extractor = _get_extractor(extension)
+    route = resolve_extraction_route(path)
+    route_display = format_extraction_route(route)
 
-    return extractor(str(path))
+    logger.info(
+        "EXTRACTION ROUTE | file=%s | path=%s",
+        path.name,
+        route_display,
+    )
+
+    extractor = _get_extractor(extension)
+    result = extractor(str(path))
+
+    document = result.get("document")
+    if isinstance(document, dict):
+        document["extraction_route"] = route
+
+    return result
 
 
 def extract_file(file_path: str | Path) -> dict:

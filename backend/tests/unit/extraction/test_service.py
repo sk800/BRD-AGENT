@@ -3,6 +3,34 @@ from pathlib import Path
 import pytest
 
 from brd_agent.extraction.gateway import extract_file, extract_path
+from brd_agent.extraction.gateway.gateway import (
+    format_extraction_route,
+    resolve_extraction_route,
+)
+
+
+def test_resolve_extraction_route_for_text_and_pptx(tmp_path: Path) -> None:
+    text_source = tmp_path / "requirements.txt"
+    text_source.write_text("hello", encoding="utf-8")
+    pptx_source = tmp_path / "deck.pptx"
+    pptx_source.write_bytes(b"not a real pptx")
+
+    text_route = resolve_extraction_route(text_source)
+    pptx_route = resolve_extraction_route(pptx_source)
+
+    assert text_route == [
+        "gateway",
+        "extension:.txt",
+        "category:text",
+        "extractor:text.extract_text",
+    ]
+    assert pptx_route == [
+        "gateway",
+        "extension:.pptx",
+        "category:pptx",
+        "extractor:pptx.extract_pptx",
+    ]
+    assert " -> " in format_extraction_route(text_route)
 
 
 def test_extract_text_file_returns_canonical_document(tmp_path: Path) -> None:

@@ -20,12 +20,39 @@ export interface Attachment {
   size_bytes: number;
 }
 
+export interface ExtractionError {
+  attachment_id?: string | null;
+  original_filename?: string | null;
+  error: string;
+}
+
+export interface ExtractedDocument {
+  attachment_id: string;
+  original_filename?: string | null;
+  extraction: {
+    document: {
+      document_id: string;
+      filename: string;
+      file_type: string;
+    };
+    elements: Array<{
+      element_id: string;
+      type: string;
+      content: string | Record<string, unknown>;
+      location?: Record<string, unknown>;
+    }>;
+  };
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
   role: string;
   text: string | null;
   attachments: Attachment[];
+  extraction_status?: string | null;
+  extracted_documents?: ExtractedDocument[];
+  extraction_errors?: ExtractionError[];
   created_at: string;
 }
 

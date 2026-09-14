@@ -7,10 +7,12 @@ import { useAuthStore } from "@/stores/auth-store";
 export default function HomePage() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
 
   useEffect(() => {
+    if (!hasHydrated) return;
     router.replace(isAuthenticated() ? "/chat" : "/login");
-  }, [router, isAuthenticated]);
+  }, [router, isAuthenticated, hasHydrated]);
 
   return (
     <div className="flex h-screen items-center justify-center">

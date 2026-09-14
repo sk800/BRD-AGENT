@@ -12,6 +12,18 @@ class AttachmentInDB(BaseModel):
     storage_path: str
 
 
+class ExtractionErrorInDB(BaseModel):
+    attachment_id: str | None = None
+    original_filename: str | None = None
+    error: str
+
+
+class ExtractedDocumentInDB(BaseModel):
+    attachment_id: str
+    original_filename: str | None = None
+    extraction: dict
+
+
 class MessageInDB(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -21,6 +33,9 @@ class MessageInDB(BaseModel):
     role: str = "user"
     text: str | None = None
     attachments: list[AttachmentInDB] = Field(default_factory=list)
+    extraction_status: str | None = None
+    extracted_documents: list[ExtractedDocumentInDB] = Field(default_factory=list)
+    extraction_errors: list[ExtractionErrorInDB] = Field(default_factory=list)
     created_at: datetime
 
 
@@ -59,5 +74,8 @@ def build_message_document(
         "role": "user",
         "text": text,
         "attachments": attachments,
+        "extraction_status": None,
+        "extracted_documents": [],
+        "extraction_errors": [],
         "created_at": datetime.now(UTC),
     }

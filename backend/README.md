@@ -87,8 +87,11 @@ python3.11 -m venv .venv
 source .venv/bin/activate        # macOS / Linux
 # .venv\Scripts\activate         # Windows
 
-# 3. Install dependencies
+# 3. Install dependencies (includes PDF/DOCX/PPTX extraction libs)
 pip install -e ".[dev]"
+
+# Optional: OCR for scanned PDFs / layout analysis
+# pip install -e ".[layout]"
 
 # 4. Copy environment file and configure MongoDB
 cp .env.example .env

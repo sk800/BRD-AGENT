@@ -8,6 +8,8 @@ from brd_agent.api.schemas.chat import (
     AttachmentResponse,
     ConversationListResponse,
     ConversationResponse,
+    ExtractedDocumentResponse,
+    ExtractionErrorResponse,
     MessageListResponse,
     MessageResponse,
     SendMessageResponse,
@@ -44,6 +46,23 @@ def _to_message_response(message: MessageInDB) -> MessageResponse:
                 size_bytes=attachment.size_bytes,
             )
             for attachment in message.attachments
+        ],
+        extraction_status=message.extraction_status,
+        extracted_documents=[
+            ExtractedDocumentResponse(
+                attachment_id=item.attachment_id,
+                original_filename=item.original_filename,
+                extraction=item.extraction,
+            )
+            for item in message.extracted_documents
+        ],
+        extraction_errors=[
+            ExtractionErrorResponse(
+                attachment_id=item.attachment_id,
+                original_filename=item.original_filename,
+                error=item.error,
+            )
+            for item in message.extraction_errors
         ],
         created_at=message.created_at,
     )

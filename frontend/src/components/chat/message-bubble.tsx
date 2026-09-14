@@ -3,6 +3,7 @@
 import { FileIcon, FileImage, FileSpreadsheet, FileText } from "lucide-react";
 import type { Attachment, Message } from "@/types";
 import { cn, formatFileSize, formatTime } from "@/lib/utils";
+import { ExtractionPreview } from "./extraction-preview";
 
 function AttachmentIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.startsWith("image/"))
@@ -66,6 +67,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             ))}
           </div>
         )}
+
+        <ExtractionPreview
+          status={message.extraction_status}
+          extractedDocuments={message.extracted_documents}
+          extractionErrors={message.extraction_errors}
+        />
 
         <p className="text-xs text-gray-500 px-1">
           {formatTime(message.created_at)}

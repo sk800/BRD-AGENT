@@ -1,0 +1,7 @@
+Requirement one
+
+Requirement two
+
+# Business Goals
+- Improve onboarding
+- Reduce manual BRD effort
