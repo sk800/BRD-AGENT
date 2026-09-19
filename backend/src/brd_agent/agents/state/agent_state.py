@@ -19,6 +19,10 @@ class AgentState(TypedDict, total=False):
     extraction_errors: list[dict[str, Any]]
     extraction_status: str
 
+    # Chunking
+    chunking_method: str
+    chunks: list[dict[str, Any]]
+    
     # Workflow control
     current_stage: str
     errors: list[str]
