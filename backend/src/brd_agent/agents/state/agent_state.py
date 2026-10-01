@@ -22,6 +22,12 @@ class AgentState(TypedDict, total=False):
     # Chunking
     chunking_method: str
     chunks: list[dict[str, Any]]
+
+    # Embedding
+    chunk_embeddings: list[list[float]]
+    embedded_chunks: list[dict[str, Any]]
+    embedding_dimension: int
+    embedding_status: str
     
     # Workflow control
     current_stage: str

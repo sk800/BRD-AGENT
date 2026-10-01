@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 25
     max_files_per_message: int = 10
 
+    # Default embedding model for retrieval.
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+
 
 @lru_cache
 def get_settings() -> Settings:
