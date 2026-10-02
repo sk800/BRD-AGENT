@@ -44,6 +44,14 @@ export interface ExtractedDocument {
   };
 }
 
+export interface DocumentChunk {
+  chunk_id: string;
+  chunk_type: string;
+  text: string;
+  metadata: Record<string, unknown>;
+  parent_id?: string | null;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -53,6 +61,9 @@ export interface Message {
   extraction_status?: string | null;
   extracted_documents?: ExtractedDocument[];
   extraction_errors?: ExtractionError[];
+  chunking_method?: string | null;
+  chunking_status?: string | null;
+  chunks?: DocumentChunk[];
   created_at: string;
 }
 

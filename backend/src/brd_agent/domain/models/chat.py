@@ -36,6 +36,9 @@ class MessageInDB(BaseModel):
     extraction_status: str | None = None
     extracted_documents: list[ExtractedDocumentInDB] = Field(default_factory=list)
     extraction_errors: list[ExtractionErrorInDB] = Field(default_factory=list)
+    chunking_method: str | None = None
+    chunking_status: str | None = None
+    chunks: list[dict] = Field(default_factory=list)
     created_at: datetime
 
 
@@ -77,5 +80,8 @@ def build_message_document(
         "extraction_status": None,
         "extracted_documents": [],
         "extraction_errors": [],
+        "chunking_method": None,
+        "chunking_status": None,
+        "chunks": [],
         "created_at": datetime.now(UTC),
     }

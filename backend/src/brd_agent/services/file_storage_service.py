@@ -15,10 +15,10 @@ settings = get_settings()
 
 def sanitize_filename(filename: str) -> str:
     cleaned = Path(filename).name
-    cleaned = re.sub(r"[^\w.\-]", "_", cleaned)
+    cleaned = re.sub(r"[^\w.\-]", "_", cleaned) 
     return cleaned or "file"
 
-
+ 
 class FileStorageService:
     def __init__(self) -> None:
         self._upload_root = Path(settings.upload_dir)

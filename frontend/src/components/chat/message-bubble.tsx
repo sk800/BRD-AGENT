@@ -72,6 +72,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           status={message.extraction_status}
           extractedDocuments={message.extracted_documents}
           extractionErrors={message.extraction_errors}
+          chunkingStatus={message.chunking_status}
+          chunkingMethod={message.chunking_method}
+          chunkCount={message.chunks?.length ?? 0}
         />
 
         <p className="text-xs text-gray-500 px-1">

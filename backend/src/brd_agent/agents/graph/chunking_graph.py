@@ -71,6 +71,7 @@ async def run_chunking(
         "extracted_documents": extracted_documents,
         "chunking_method": chunking_method,
         "chunks": [],
+        "chunking_status": "pending",
         "current_stage": "chunking",
         "errors": [],
     }

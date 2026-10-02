@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     upload_dir: str = "data/uploads"
     max_file_size_mb: int = 25
     max_files_per_message: int = 10
+    default_chunking_method: str = "parent_child"
 
 
 @lru_cache

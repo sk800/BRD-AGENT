@@ -13,12 +13,18 @@ interface ExtractionPreviewProps {
   status?: string | null;
   extractedDocuments?: ExtractedDocument[];
   extractionErrors?: ExtractionError[];
+  chunkingStatus?: string | null;
+  chunkingMethod?: string | null;
+  chunkCount?: number;
 }
 
 export function ExtractionPreview({
   status,
   extractedDocuments = [],
   extractionErrors = [],
+  chunkingStatus,
+  chunkingMethod,
+  chunkCount = 0,
 }: ExtractionPreviewProps) {
   if (!status || status === "skipped") return null;
 
@@ -44,6 +50,11 @@ export function ExtractionPreview({
             Extraction {status}
             {extractedDocuments.length > 0 &&
               ` · ${extractedDocuments.length} file(s)`}
+            {chunkingStatus && chunkingStatus !== "skipped" &&
+              ` · Chunking ${chunkingStatus}`}
+            {chunkCount > 0 && ` · ${chunkCount} chunk(s)`}
+            {chunkingMethod && chunkingStatus !== "skipped" &&
+              ` (${chunkingMethod})`}
           </p>
         </div>
       </div>

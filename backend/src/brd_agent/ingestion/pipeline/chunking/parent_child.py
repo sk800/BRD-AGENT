@@ -212,6 +212,17 @@ def structure_aware_parent_child(
                 f"parent_{section_index}_{parent_index}"
             )
 
+            child_texts = child_splitter.split_text(
+                parent_text
+            )
+
+            # When the parent fits in one child window, child text equals
+            # parent text — keep the parent only (no duplicate child row).
+            standalone_parent = (
+                len(child_texts) == 1
+                and child_texts[0].strip() == parent_text.strip()
+            )
+
             # ----------------------------------------------
             # Parent chunk
             # ----------------------------------------------
@@ -224,6 +235,8 @@ def structure_aware_parent_child(
                     **section["metadata"],
                     "heading": heading,
                     "section_index": section_index,
+                    # False: embed/search children; True: this parent is the unit.
+                    "standalone_parent": standalone_parent,
                 },
             }
 
@@ -233,9 +246,8 @@ def structure_aware_parent_child(
             # 6. Create child chunks from parent
             # ----------------------------------------------
 
-            child_texts = child_splitter.split_text(
-                parent_text
-            )
+            if standalone_parent:
+                continue
 
             for child_index, child_text in enumerate(
                 child_texts

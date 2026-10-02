@@ -45,6 +45,7 @@ async def parent_child_chunking_node(
 
     return {
         "chunks": chunks,
+        "chunking_status": "done",
         "current_stage": "chunking",
     }
 
@@ -62,6 +63,19 @@ async def recursive_chunking_node(
 
     return {
         "chunks": chunks,
+        "chunking_status": "done",
+        "current_stage": "chunking",
+    }
+
+
+async def skip_chunking_node(
+    state: AgentState,
+) -> dict[str, Any]:
+    """Skip chunking when extraction produced no documents."""
+
+    return {
+        "chunks": [],
+        "chunking_status": "skipped",
         "current_stage": "chunking",
     }
 

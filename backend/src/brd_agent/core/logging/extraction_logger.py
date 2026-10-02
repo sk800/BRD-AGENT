@@ -33,6 +33,7 @@ def log_extraction_results(
 
     if not extracted_documents and not extraction_errors:
         logger.info("No files to extract.")
+        _log_chunking_results(extraction_state)
         logger.info("=" * 70)
         return
 
@@ -106,4 +107,52 @@ def log_extraction_results(
                 error.get("error", "unknown error"),
             )
 
+    _log_chunking_results(extraction_state)
     logger.info("=" * 70)
+
+
+def _log_chunking_results(ingestion_state: dict) -> None:
+    chunking_status = ingestion_state.get("chunking_status")
+    if chunking_status is None:
+        return
+
+    chunking_method = ingestion_state.get("chunking_method", "unknown")
+    chunks = ingestion_state.get("chunks", [])
+
+    logger.info("-" * 70)
+    logger.info(
+        "CHUNKING | method=%s status=%s chunks=%s",
+        chunking_method,
+        chunking_status,
+        len(chunks),
+    )
+
+    for index, chunk in enumerate(chunks, start=1):
+        chunk_type = chunk.get("chunk_type", "unknown")
+        chunk_id = chunk.get("chunk_id", "n/a")
+        text = str(chunk.get("text", ""))
+        heading = chunk.get("metadata", {}).get("heading")
+        parent_id = chunk.get("parent_id")
+        parent_hint = f" parent_id={parent_id}" if parent_id else ""
+        standalone = chunk.get("metadata", {}).get("standalone_parent")
+        standalone_hint = (
+            " standalone_parent=true" if standalone else ""
+        )
+
+        logger.info(
+            "  %s. [%s%s%s] chunk_id=%s chars=%s heading=%s",
+            index,
+            chunk_type,
+            parent_hint,
+            standalone_hint,
+            chunk_id,
+            len(text),
+            heading or "n/a",
+        )
+        if text:
+            logger.info("       --- chunk text start ---")
+            for line in text.splitlines():
+                logger.info("       %s", line)
+            logger.info("       --- chunk text end ---")
+        else:
+            logger.warning("       TEXT: <empty>")

@@ -22,6 +22,7 @@ class AgentState(TypedDict, total=False):
     # Chunking
     chunking_method: str
     chunks: list[dict[str, Any]]
+    chunking_status: str
     
     # Workflow control
     current_stage: str

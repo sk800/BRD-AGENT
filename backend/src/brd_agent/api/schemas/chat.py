@@ -23,6 +23,14 @@ class ExtractedDocumentResponse(BaseModel):
     extraction: dict
 
 
+class ChunkResponse(BaseModel):
+    chunk_id: str
+    chunk_type: str
+    text: str
+    metadata: dict = Field(default_factory=dict)
+    parent_id: str | None = None
+
+
 class MessageResponse(BaseModel):
     id: str
     conversation_id: str
@@ -32,6 +40,9 @@ class MessageResponse(BaseModel):
     extraction_status: str | None = None
     extracted_documents: list[ExtractedDocumentResponse] = Field(default_factory=list)
     extraction_errors: list[ExtractionErrorResponse] = Field(default_factory=list)
+    chunking_method: str | None = None
+    chunking_status: str | None = None
+    chunks: list[ChunkResponse] = Field(default_factory=list)
     created_at: datetime
 
 

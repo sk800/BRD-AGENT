@@ -9,6 +9,7 @@ from brd_agent.api.schemas.chat import (
     ConversationListResponse,
     ConversationResponse,
     ExtractedDocumentResponse,
+    ChunkResponse,
     ExtractionErrorResponse,
     MessageListResponse,
     MessageResponse,
@@ -63,6 +64,18 @@ def _to_message_response(message: MessageInDB) -> MessageResponse:
                 error=item.error,
             )
             for item in message.extraction_errors
+        ],
+        chunking_method=message.chunking_method,
+        chunking_status=message.chunking_status,
+        chunks=[
+            ChunkResponse(
+                chunk_id=chunk.get("chunk_id", ""),
+                chunk_type=chunk.get("chunk_type", "unknown"),
+                text=chunk.get("text", ""),
+                metadata=chunk.get("metadata", {}),
+                parent_id=chunk.get("parent_id"),
+            )
+            for chunk in message.chunks
         ],
         created_at=message.created_at,
     )
