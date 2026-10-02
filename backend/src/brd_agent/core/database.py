@@ -32,6 +32,9 @@ async def init_db() -> None:
     await db.conversations.create_index([("user_id", 1), ("updated_at", -1)])
     await db.messages.create_index([("conversation_id", 1), ("created_at", 1)])
     await db.messages.create_index([("user_id", 1), ("conversation_id", 1)])
+    await db.vector_ingestions.create_index(
+        [("user_id", 1), ("content_sha256", 1), ("pipeline_version", 1)]
+    )
 
 
 async def close_db() -> None:

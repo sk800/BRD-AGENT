@@ -72,6 +72,20 @@ class ChatService:
                 chunking_method=ingestion_state.get("chunking_method"),
                 chunking_status=ingestion_state.get("chunking_status"),
                 chunks=ingestion_state.get("chunks", []),
+                vector_ingestion_status=ingestion_state.get(
+                    "vector_ingestion_status"
+                ),
+                vectors_ingested=ingestion_state.get("vectors_ingested"),
+                vector_ingestion_skipped_attachments=ingestion_state.get(
+                    "vector_ingestion_skipped_attachments"
+                ),
+                vector_ingestion_results=ingestion_state.get(
+                    "vector_ingestion_results", []
+                ),
+                embedding_model=ingestion_state.get("embedding_model"),
+                embedding_pipeline_version=ingestion_state.get(
+                    "embedding_pipeline_version"
+                ),
             )
             if updated_message is not None:
                 message = updated_message

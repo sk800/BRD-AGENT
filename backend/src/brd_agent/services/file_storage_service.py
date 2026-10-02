@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import re
 import uuid
 from pathlib import Path
@@ -62,6 +63,8 @@ class FileStorageService:
             stored_filename = f"{file_id}_{safe_name}"
             storage_path = user_dir / stored_filename
 
+            content_sha256 = hashlib.sha256(content).hexdigest()
+
             async with aiofiles.open(storage_path, "wb") as file_handle:
                 await file_handle.write(content)
 
@@ -73,6 +76,7 @@ class FileStorageService:
                     mime_type=upload.content_type or "application/octet-stream",
                     size_bytes=len(content),
                     storage_path=str(storage_path),
+                    content_sha256=content_sha256,
                 )
             )
 

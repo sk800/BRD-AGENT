@@ -10,6 +10,7 @@ class AttachmentInDB(BaseModel):
     mime_type: str
     size_bytes: int
     storage_path: str
+    content_sha256: str | None = None
 
 
 class ExtractionErrorInDB(BaseModel):
@@ -39,6 +40,12 @@ class MessageInDB(BaseModel):
     chunking_method: str | None = None
     chunking_status: str | None = None
     chunks: list[dict] = Field(default_factory=list)
+    vector_ingestion_status: str | None = None
+    vectors_ingested: int | None = None
+    vector_ingestion_skipped_attachments: int | None = None
+    vector_ingestion_results: list[dict] = Field(default_factory=list)
+    embedding_model: str | None = None
+    embedding_pipeline_version: str | None = None
     created_at: datetime
 
 
@@ -83,5 +90,11 @@ def build_message_document(
         "chunking_method": None,
         "chunking_status": None,
         "chunks": [],
+        "vector_ingestion_status": None,
+        "vectors_ingested": None,
+        "vector_ingestion_skipped_attachments": None,
+        "vector_ingestion_results": [],
+        "embedding_model": None,
+        "embedding_pipeline_version": None,
         "created_at": datetime.now(UTC),
     }

@@ -108,6 +108,7 @@ def log_extraction_results(
             )
 
     _log_chunking_results(extraction_state)
+    _log_vector_ingestion_results(extraction_state)
     logger.info("=" * 70)
 
 
@@ -156,3 +157,103 @@ def _log_chunking_results(ingestion_state: dict) -> None:
             logger.info("       --- chunk text end ---")
         else:
             logger.warning("       TEXT: <empty>")
+
+
+def _log_vector_ingestion_results(ingestion_state: dict) -> None:
+    status = ingestion_state.get("vector_ingestion_status")
+    if status is None:
+        return
+
+    logger.info("-" * 70)
+    logger.info(
+        "VECTOR INGESTION | status=%s model=%s pipeline=%s vectors=%s skipped_attachments=%s",
+        status,
+        ingestion_state.get("embedding_model", "n/a"),
+        ingestion_state.get("embedding_pipeline_version", "n/a"),
+        ingestion_state.get("vectors_ingested", 0),
+        ingestion_state.get("vector_ingestion_skipped_attachments", 0),
+    )
+
+    for item in ingestion_state.get("vector_ingestion_results", []):
+        logger.info(
+            "  attachment=%s status=%s vectors=%s key=%s",
+            item.get("attachment_id"),
+            item.get("status"),
+            item.get("vector_count"),
+            item.get("ingestion_key"),
+        )
+
+
+def log_lance_ingestion_rows(rows: list[dict]) -> None:
+    """Print LanceDB payload metadata and embedding preview for each vector row."""
+
+    if not rows:
+        return
+
+    logger.info("-" * 70)
+    logger.info("LANCEDB UPSERT PAYLOAD | rows=%s", len(rows))
+
+    for index, row in enumerate(rows, start=1):
+        vector = row.get("vector") or []
+        preview_values = [round(float(value), 6) for value in vector[:12]]
+
+        logger.info(
+            "  %s. vector_id=%s chunk_id=%s chunk_type=%s parent_id=%s",
+            index,
+            row.get("vector_id"),
+            row.get("chunk_id"),
+            row.get("chunk_type"),
+            row.get("parent_id"),
+        )
+        logger.info(
+            "       user_id=%s conversation_id=%s message_id=%s attachment_id=%s",
+            row.get("user_id"),
+            row.get("conversation_id"),
+            row.get("message_id"),
+            row.get("attachment_id"),
+        )
+        logger.info(
+            "       content_sha256=%s ingestion_key=%s",
+            row.get("content_sha256"),
+            row.get("ingestion_key"),
+        )
+        logger.info(
+            "       pipeline_version=%s heading=%s section_index=%s",
+            row.get("pipeline_version"),
+            row.get("heading"),
+            row.get("section_index"),
+        )
+        logger.info("       embedding_dims=%s", len(vector))
+        logger.info("       embedding_preview=%s", preview_values)
+        logger.info(
+            "       embedding_full=%s",
+            json.dumps([round(float(value), 6) for value in vector]),
+        )
+
+        text = str(row.get("text", ""))
+        if text:
+            logger.info("       --- lance text start ---")
+            for line in text.splitlines():
+                logger.info("       %s", line)
+            logger.info("       --- lance text end ---")
+        else:
+            logger.warning("       lance text: <empty>")
+
+
+def log_lance_ingestion_skipped(
+    *,
+    attachment_id: str,
+    status: str,
+    ingestion_key: str | None = None,
+    pipeline_version: str | None = None,
+    error: str | None = None,
+) -> None:
+    logger.info("-" * 70)
+    logger.info(
+        "LANCEDB SKIP | attachment=%s status=%s key=%s pipeline=%s error=%s",
+        attachment_id,
+        status,
+        ingestion_key,
+        pipeline_version,
+        error,
+    )

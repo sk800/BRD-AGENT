@@ -40,6 +40,12 @@ class MessageRepository:
         chunking_method: str | None,
         chunking_status: str | None,
         chunks: list[dict],
+        vector_ingestion_status: str | None = None,
+        vectors_ingested: int | None = None,
+        vector_ingestion_skipped_attachments: int | None = None,
+        vector_ingestion_results: list[dict] | None = None,
+        embedding_model: str | None = None,
+        embedding_pipeline_version: str | None = None,
     ) -> MessageInDB | None:
         result = await self._collection.find_one_and_update(
             {"_id": message_id, "user_id": user_id},
@@ -51,6 +57,14 @@ class MessageRepository:
                     "chunking_method": chunking_method,
                     "chunking_status": chunking_status,
                     "chunks": chunks,
+                    "vector_ingestion_status": vector_ingestion_status,
+                    "vectors_ingested": vectors_ingested,
+                    "vector_ingestion_skipped_attachments": (
+                        vector_ingestion_skipped_attachments
+                    ),
+                    "vector_ingestion_results": vector_ingestion_results or [],
+                    "embedding_model": embedding_model,
+                    "embedding_pipeline_version": embedding_pipeline_version,
                 }
             },
             return_document=ReturnDocument.AFTER,

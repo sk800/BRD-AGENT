@@ -1,6 +1,22 @@
 import pytest
 
 from brd_agent.agents.graph.ingestion_graph import get_ingestion_graph
+from brd_agent.services.vector_ingestion_service import VectorIngestionService
+
+
+@pytest.fixture(autouse=True)
+def mock_vector_ingestion(monkeypatch):
+    async def fake_ingest(self, **kwargs):
+        return {
+            "vector_ingestion_status": "done",
+            "vectors_ingested": 1,
+            "vector_ingestion_skipped_attachments": 0,
+            "vector_ingestion_results": [],
+            "embedding_model": "test-model",
+            "embedding_pipeline_version": "test-pipeline",
+        }
+
+    monkeypatch.setattr(VectorIngestionService, "ingest_chunks", fake_ingest)
 
 
 @pytest.mark.asyncio
@@ -30,6 +46,7 @@ async def test_ingestion_graph_runs_extraction_then_chunking(monkeypatch):
                     "id": "att-1",
                     "storage_path": "/tmp/sample.txt",
                     "original_filename": "sample.txt",
+                    "content_sha256": "abc123",
                 }
             ],
             "extracted_documents": [],
@@ -38,6 +55,10 @@ async def test_ingestion_graph_runs_extraction_then_chunking(monkeypatch):
             "chunking_method": "recursive",
             "chunks": [],
             "chunking_status": "pending",
+            "vector_ingestion_status": "pending",
+            "vectors_ingested": 0,
+            "vector_ingestion_skipped_attachments": 0,
+            "vector_ingestion_results": [],
             "current_stage": "extraction",
             "errors": [],
         }
@@ -45,6 +66,7 @@ async def test_ingestion_graph_runs_extraction_then_chunking(monkeypatch):
 
     assert result["extraction_status"] == "done"
     assert result["chunking_status"] == "done"
+    assert result["vector_ingestion_status"] == "done"
     assert result["chunks"]
     assert all(chunk["chunk_type"] == "recursive" for chunk in result["chunks"])
 
@@ -78,6 +100,10 @@ async def test_ingestion_graph_skips_chunking_when_extraction_fails(monkeypatch)
             "chunking_method": "recursive",
             "chunks": [],
             "chunking_status": "pending",
+            "vector_ingestion_status": "pending",
+            "vectors_ingested": 0,
+            "vector_ingestion_skipped_attachments": 0,
+            "vector_ingestion_results": [],
             "current_stage": "extraction",
             "errors": [],
         }

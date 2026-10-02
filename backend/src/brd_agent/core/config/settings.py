@@ -25,6 +25,28 @@ class Settings(BaseSettings):
     max_files_per_message: int = 10
     default_chunking_method: str = "parent_child"
 
+    lance_db_path: str = "data/lancedb"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_pipeline_version: int = 1
+
+    # Enterprise knowledge — Confluence
+    confluence_base_url: str = ""
+    confluence_email: str = ""
+    confluence_api_token: str = ""
+
+    # Enterprise knowledge — ServiceNow
+    servicenow_instance_url: str = ""
+    servicenow_username: str = ""
+    servicenow_password: str = ""
+
+    # MCP client: in-process server (dev) vs stdio subprocess (production)
+    mcp_enterprise_use_inprocess: bool = True
+    mcp_enterprise_server_command: str = ""
+    mcp_enterprise_server_args: list[str] = []
+
+    # Context assembly (BRD generation): chunks retrieved from uploads in LanceDB
+    context_retrieval_top_k: int = 8
+
 
 @lru_cache
 def get_settings() -> Settings:

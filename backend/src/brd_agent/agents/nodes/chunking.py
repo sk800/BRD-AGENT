@@ -9,27 +9,46 @@ from brd_agent.ingestion.pipeline.chunking.recursive import (
 )
 
 
-def _get_all_elements(
-    state: AgentState,
+def _tag_chunks_with_attachment(
+    chunks: list[dict[str, Any]],
+    *,
+    attachment_id: str,
+    original_filename: str | None,
 ) -> list[dict[str, Any]]:
-    """Collect extracted elements from all documents."""
+    for chunk in chunks:
+        metadata = dict(chunk.get("metadata") or {})
+        metadata["attachment_id"] = attachment_id
+        if original_filename:
+            metadata["original_filename"] = original_filename
+        chunk["metadata"] = metadata
+    return chunks
 
-    elements: list[dict[str, Any]] = []
+
+def _chunk_all_documents(
+    state: AgentState,
+    chunker,
+) -> list[dict[str, Any]]:
+    all_chunks: list[dict[str, Any]] = []
 
     for document in state.get("extracted_documents", []):
         extraction = document.get("extraction", {})
-
         if not isinstance(extraction, dict):
             continue
 
-        document_elements = extraction.get(
-            "elements", []
+        elements = extraction.get("elements", [])
+        if not isinstance(elements, list) or not elements:
+            continue
+
+        document_chunks = chunker(elements)
+        all_chunks.extend(
+            _tag_chunks_with_attachment(
+                document_chunks,
+                attachment_id=document.get("attachment_id", ""),
+                original_filename=document.get("original_filename"),
+            )
         )
 
-        if isinstance(document_elements, list):
-            elements.extend(document_elements)
-
-    return elements
+    return all_chunks
 
 
 async def parent_child_chunking_node(
@@ -37,11 +56,7 @@ async def parent_child_chunking_node(
 ) -> dict[str, Any]:
     """Run the structure-aware parent-child pipeline."""
 
-    elements = _get_all_elements(state)
-
-    chunks = structure_aware_parent_child(
-        elements
-    )
+    chunks = _chunk_all_documents(state, structure_aware_parent_child)
 
     return {
         "chunks": chunks,
@@ -55,11 +70,7 @@ async def recursive_chunking_node(
 ) -> dict[str, Any]:
     """Run the structure-aware recursive pipeline."""
 
-    elements = _get_all_elements(state)
-
-    chunks = structure_aware_recursive(
-        elements
-    )
+    chunks = _chunk_all_documents(state, structure_aware_recursive)
 
     return {
         "chunks": chunks,

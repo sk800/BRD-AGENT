@@ -9,6 +9,7 @@ from brd_agent.agents.nodes.chunking import (
     skip_chunking_node,
 )
 from brd_agent.agents.nodes.extraction import extraction_node
+from brd_agent.agents.nodes.vector_ingestion import vector_ingestion_node
 from brd_agent.agents.state import AgentState
 
 
@@ -31,6 +32,7 @@ def build_ingestion_graph():
     graph.add_node("skip_chunking", skip_chunking_node)
     graph.add_node("parent_child", parent_child_chunking_node)
     graph.add_node("recursive", recursive_chunking_node)
+    graph.add_node("vector_ingestion", vector_ingestion_node)
 
     graph.add_edge(START, "extraction")
 
@@ -44,9 +46,10 @@ def build_ingestion_graph():
         },
     )
 
-    graph.add_edge("skip_chunking", END)
-    graph.add_edge("parent_child", END)
-    graph.add_edge("recursive", END)
+    graph.add_edge("skip_chunking", "vector_ingestion")
+    graph.add_edge("parent_child", "vector_ingestion")
+    graph.add_edge("recursive", "vector_ingestion")
+    graph.add_edge("vector_ingestion", END)
 
     return graph.compile()
 
@@ -81,6 +84,10 @@ async def run_ingestion(
         "chunking_method": chunking_method,
         "chunks": [],
         "chunking_status": "pending",
+        "vector_ingestion_status": "pending",
+        "vectors_ingested": 0,
+        "vector_ingestion_skipped_attachments": 0,
+        "vector_ingestion_results": [],
         "current_stage": "extraction",
         "errors": [],
     }
