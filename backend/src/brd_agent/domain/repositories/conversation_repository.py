@@ -34,3 +34,16 @@ class ConversationRepository:
             {"_id": conversation_id},
             {"$set": {"updated_at": datetime.now(UTC)}},
         )
+
+    async def update_workflow_state(
+        self, conversation_id: str, user_id: str, workflow_state: dict
+    ) -> None:
+        await self._collection.update_one(
+            {"_id": conversation_id, "user_id": user_id},
+            {
+                "$set": {
+                    "workflow_state": workflow_state,
+                    "updated_at": datetime.now(UTC),
+                }
+            },
+        )

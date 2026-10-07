@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from brd_agent.api.dependencies.auth import get_current_user
 from brd_agent.api.dependencies.chat import get_chat_service
 from brd_agent.api.schemas.brd import AssembleBrdContextRequest, AssembledContextResponse
-from brd_agent.agents.graph.context_assembly_graph import run_context_assembly
 from brd_agent.core.exceptions import ChatError
 from brd_agent.domain.models.user import UserPublic
+from brd_agent.agents.graph.context_assembly_graph import run_context_assembly
 from brd_agent.services.chat_service import ChatService
 
 router = APIRouter(prefix="/brd", tags=["brd"])

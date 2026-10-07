@@ -13,6 +13,7 @@ class AgentState(TypedDict, total=False):
     # User input
     current_user_text: str | None
     attachments: list[dict[str, Any]]
+    conversation_history: list[dict[str, str]]
 
     # Extraction
     extracted_documents: list[dict[str, Any]]
@@ -32,8 +33,15 @@ class AgentState(TypedDict, total=False):
     embedding_model: str
     embedding_pipeline_version: str
 
-    # BRD generation — content assembly (uploads via vector DB + live MCP)
+    # Requirement discovery and context assembly
     requirement_text: str | None
+    requirement_checklist: list[dict[str, Any]]
+    requirement_checklist_status: str
+    prior_checklist: list[dict[str, Any]]
+    conversation_route: str
+    assistant_message: str
+    memory_context: list[dict[str, Any]]
+    assembled_checklist_context: list[dict[str, Any]]
     enterprise_sources: list[dict[str, Any]]
     retrieval_top_k: int | None
     assembled_context: dict[str, Any]

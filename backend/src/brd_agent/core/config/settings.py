@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     mcp_enterprise_server_command: str = ""
     mcp_enterprise_server_args: list[str] = []
 
+    # Azure OpenAI requirement discovery
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: str = ""
+    azure_openai_deployment: str = "gpt-5.4-nano"
+    azure_openai_api_version: str = "2024-12-01-preview"
+    llm_max_completion_tokens: int = 16384
+
     # Context assembly (BRD generation): chunks retrieved from uploads in LanceDB
     context_retrieval_top_k: int = 8
 

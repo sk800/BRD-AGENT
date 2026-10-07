@@ -15,7 +15,7 @@ async def test_run_context_assembly_graph(monkeypatch):
         )
 
     monkeypatch.setattr(
-        "brd_agent.agents.nodes.context_assembly.ContentAssemblyService.assemble_for_brd_generation",
+        "brd_agent.agents.nodes.context_assembly.ContentAssemblyService.assemble_for_requirement",
         fake_assemble,
     )
 
@@ -26,3 +26,14 @@ async def test_run_context_assembly_graph(monkeypatch):
     )
     assert state["context_assembly_status"] == "assembled"
     assert state["assembled_context"]["requirement_text"] == "Generate BRD"
+
+
+@pytest.mark.asyncio
+async def test_context_assembly_graph_rejects_enterprise_source_without_action():
+    with pytest.raises(ValueError, match="platform and action"):
+        await run_context_assembly(
+            user_id="u1",
+            conversation_id="c1",
+            requirement_text="Find the relevant cafe menu",
+            enterprise_sources=[{"platform": "confluence"}],
+        )

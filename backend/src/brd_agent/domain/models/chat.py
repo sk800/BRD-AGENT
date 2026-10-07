@@ -57,6 +57,7 @@ class ConversationInDB(BaseModel):
     title: str
     created_at: datetime
     updated_at: datetime
+    workflow_state: dict = Field(default_factory=dict)
 
 
 def build_conversation_document(conversation_id: str, user_id: str, title: str) -> dict:
@@ -67,6 +68,7 @@ def build_conversation_document(conversation_id: str, user_id: str, title: str) 
         "title": title,
         "created_at": now,
         "updated_at": now,
+        "workflow_state": {},
     }
 
 

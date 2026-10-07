@@ -4,13 +4,21 @@ Agentic AI backend for **Business Requirements Document (BRD)** generation. Buil
 
 ## Overview
 
-The backend implements an agentic requirements engineering pipeline:
+Nodes and LangGraph definitions live in the shared `agents/nodes/` and
+`agents/graph/` directories, following the existing extraction and chunking
+patterns. Requirement-specific models, prompts, and service logic live under
+`intake/`; context assembly service logic lives under `orchestration/`.
+
+The current implementation focus is requirement discovery and context assembly:
 
 ```
-extract → discover → validate → enrich → route → generate → validate → learn
+user text + uploaded files → requirement checklist → supporting context
 ```
 
-It handles conversational intake, document extraction, enterprise knowledge retrieval, LLM routing, guardrails, user feedback loops, and post-experience memory.
+Uploaded files are extracted and indexed by the ingestion workflow. Requirement
+discovery uses Azure OpenAI, with the user request as the primary source and uploaded
+documents and conversation history as supporting context. Context assembly retrieves
+relevant uploaded-document chunks and optionally fetches enterprise knowledge.
 
 ## Tech Stack
 
@@ -18,7 +26,7 @@ It handles conversational intake, document extraction, enterprise knowledge retr
 |---|---|
 | API | FastAPI |
 | Agent orchestration | LangGraph |
-| LLM routing | Multi-model gateway (General, Domain/Legal, Long-Context) |
+| Requirement discovery | Azure OpenAI |
 | Observability | LangSmith (tracing, evals, monitoring) |
 | Language | Python 3.11+ |
 
@@ -29,12 +37,12 @@ backend/
 ├── src/brd_agent/
 │   ├── api/              # FastAPI routes, middleware, schemas
 │   ├── agents/           # LangGraph graph, nodes, edges, state
-│   ├── intake/           # Requirement intake & clarification
+│   ├── intake/           # Requirement models, prompts, and discovery service
 │   ├── extraction/       # Document extraction (PDF, DOCX, OCR, email)
 │   ├── ingestion/        # Chunking, normalization, persistence
-│   ├── orchestration/    # Content assembly & context management
-│   ├── knowledge/        # Enterprise connectors (Confluence, Slack, DB)
-│   ├── memory/           # Conversation history & feedback memory
+│   ├── orchestration/    # Context assembly service
+│   ├── knowledge/        # Enterprise connectors and MCP tools
+│   ├── memory/           # Durable episodic, semantic, procedural memory
 │   ├── guardrails/       # Validation at every pipeline stage
 │   ├── llm/              # Query-aware LLM gateway & providers
 │   ├── feedback/         # Approval & clarification loop
@@ -52,21 +60,56 @@ backend/
 └── scripts/              # Dev & utility scripts
 ```
 
-## Agent Pipeline
+## Current Workflow
 
 ```
-START
-  → intake (requirement_intake_clarification)
-  → extraction (document_extraction_gateway)
-  → ingestion
-  → orchestration (content_assembly)
-  → guardrails (input_validation)
-  → llm_gateway (query-aware routing)
-  → guardrails (output_validation)
-  → feedback (user_approval)
-      ├─ approved       → memory update → END
-      └─ needs clarification → intake (loop)
+POST /api/v1/chat/requirements
+  → save text and optional files
+  → ingest files (extract + chunk + index)
+  → retrieve project-scoped LangMem memories
+  → discover or update the concise BRD checklist
+  → search uploaded-document vectors for every checklist item
+  → search configured Confluence and any explicitly supplied read-only MCP sources
+  → assess evidence as answered, missing, or needing clarification
+  → persist checklist and evidence state in MongoDB
+  → return the checklist, supporting evidence, and questions for the user
+
+Fields: text (optional if files are supplied), files (optional), conversation_id (optional)
+Optional fields: enterprise_sources_json (JSON list of read-only MCP sources),
+retrieval_top_k (1–50)
+
+`assistant_message` contains the natural next prompt or an off-topic redirection.
+Clarification questions are returned in each checklist item's
+`clarification_question` and are surfaced through that message for the frontend.
+Submitting a reply with the same `conversation_id` re-evaluates the saved checklist.
+Conversation state and LangMem memory survive restarts; memory is isolated by
+authenticated user and conversation.
+
+LangMem classifies project memories as:
+- **Episodic:** project decisions, events, and outcomes
+- **Semantic:** stable project facts, terms, and constraints
+- **Procedural:** project workflows and user preferences
+
+POST /api/v1/brd/assemble-context
+  → retrieve uploaded-document chunks relevant to one requirement
+  → optionally fetch configured enterprise knowledge
+  → return assembled context
+
+JSON body: conversation_id, requirement_text, optional enterprise_sources and retrieval_top_k
 ```
+
+Confluence search is automatic when its MCP credentials are configured. ServiceNow
+queries require an explicit read-only source specification because the correct table
+and query are project-specific. Writes are rejected by the checklist endpoint.
+
+BRD generation, input/output validation, approval feedback, and the final BRD model
+are intentionally outside this current scope.
+
+Set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and
+`AZURE_OPENAI_DEPLOYMENT` in `backend/.env` to enable requirement discovery.
+`AZURE_OPENAI_API_VERSION` defaults to `2024-12-01-preview`. Set
+`LLM_MAX_COMPLETION_TOKENS` to control the output-token ceiling; LangMem's
+memory extraction uses a smaller ceiling. No live Azure calls are made by tests.
 
 ## Getting Started
 

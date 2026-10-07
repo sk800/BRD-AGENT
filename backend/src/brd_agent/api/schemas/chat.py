@@ -58,6 +58,17 @@ class SendMessageResponse(BaseModel):
     message: MessageResponse
 
 
+class RequirementDiscoveryResponse(BaseModel):
+    conversation_id: str
+    message_id: str
+    requirement_checklist: list[dict]
+    requirement_checklist_status: str
+    assembled_checklist_context: list[dict] = Field(default_factory=list)
+    context_assembly_status: str | None = None
+    conversation_route: str = "project"
+    assistant_message: str | None = None
+
+
 class ConversationListResponse(BaseModel):
     conversations: list[ConversationResponse]
 

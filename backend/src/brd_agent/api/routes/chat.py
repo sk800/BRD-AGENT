@@ -1,6 +1,8 @@
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from pydantic import TypeAdapter, ValidationError
 
 from brd_agent.api.dependencies.auth import get_current_user
 from brd_agent.api.dependencies.chat import get_chat_service
@@ -13,8 +15,11 @@ from brd_agent.api.schemas.chat import (
     ExtractionErrorResponse,
     MessageListResponse,
     MessageResponse,
+    RequirementDiscoveryResponse,
     SendMessageResponse,
 )
+from brd_agent.api.schemas.brd import EnterpriseSourceSpec
+from brd_agent.agents.graph.requirements_graph import run_requirements
 from brd_agent.core.exceptions import ChatError
 from brd_agent.domain.models.chat import ConversationInDB, MessageInDB
 from brd_agent.domain.models.user import UserPublic
@@ -102,6 +107,126 @@ async def send_message(
     return SendMessageResponse(
         conversation=_to_conversation_response(conversation),
         message=_to_message_response(message),
+    )
+
+
+@router.post(
+    "/requirements",
+    response_model=RequirementDiscoveryResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def discover_requirements(
+    current_user: Annotated[UserPublic, Depends(get_current_user)],
+    chat_service: Annotated[ChatService, Depends(get_chat_service)],
+    text: Annotated[str | None, Form()] = None,
+    conversation_id: Annotated[str | None, Form()] = None,
+    files: Annotated[list[UploadFile] | None, File()] = None,
+    enterprise_sources_json: Annotated[str | None, Form()] = None,
+    retrieval_top_k: Annotated[int | None, Form()] = None,
+) -> RequirementDiscoveryResponse:
+    """Discover BRD gaps, retrieve evidence for each, and return any user questions."""
+    enterprise_sources: list[EnterpriseSourceSpec] = []
+    if enterprise_sources_json:
+        try:
+            enterprise_sources = TypeAdapter(
+                list[EnterpriseSourceSpec]
+            ).validate_python(json.loads(enterprise_sources_json))
+        except (json.JSONDecodeError, ValidationError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="enterprise_sources_json must be a JSON list of valid source specifications",
+            ) from exc
+        read_only_actions = {
+            ("confluence", "read_page"),
+            ("confluence", "search"),
+            ("servicenow", "get_record"),
+            ("servicenow", "query_records"),
+        }
+        invalid = [
+            item
+            for item in enterprise_sources
+            if (item.platform.lower(), item.action.lower()) not in read_only_actions
+        ]
+        if invalid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Checklist context assembly accepts read-only MCP actions only",
+            )
+
+    try:
+        conversation, message = await chat_service.send_message(
+            user_id=current_user.id,
+            text=text,
+            files=files or [],
+            conversation_id=conversation_id,
+        )
+        messages = await chat_service.list_messages(current_user.id, conversation.id)
+        workflow_state = await chat_service.get_workflow_state(
+            current_user.id, conversation.id
+        )
+    except ChatError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+    state = await run_requirements(
+        request=text,
+        chunks=[chunk for chunk in message.chunks],
+        user_id=current_user.id,
+        conversation_id=conversation.id,
+        prior_checklist=workflow_state.get("requirement_checklist", []),
+        enterprise_sources=[item.model_dump() for item in enterprise_sources],
+        retrieval_top_k=retrieval_top_k,
+        conversation_history=[
+            {"role": item.role, "text": item.text or ""}
+            for item in messages
+            if item.id != message.id and item.text
+        ]
+        + (
+            [
+                {
+                    "role": "assistant",
+                    "text": workflow_state["assistant_message"],
+                }
+            ]
+            if workflow_state.get("assistant_message")
+            else []
+        ),
+    )
+
+    if state.get("conversation_route") != "redirect":
+        await chat_service.save_workflow_state(
+            current_user.id,
+            conversation.id,
+            {
+                "requirement_checklist": state.get("requirement_checklist", []),
+                "requirement_checklist_status": state.get(
+                    "requirement_checklist_status", "failed"
+                ),
+                "assembled_checklist_context": state.get(
+                    "assembled_checklist_context", []
+                ),
+                "context_assembly_status": state.get("context_assembly_status"),
+                "assistant_message": state.get("assistant_message"),
+            },
+        )
+
+    previous_context = workflow_state.get("assembled_checklist_context", [])
+    return RequirementDiscoveryResponse(
+        conversation_id=conversation.id,
+        message_id=message.id,
+        requirement_checklist=state.get("requirement_checklist", []),
+        requirement_checklist_status=state.get(
+            "requirement_checklist_status",
+            "failed",
+        ),
+        assembled_checklist_context=state.get(
+            "assembled_checklist_context", previous_context
+        ),
+        context_assembly_status=state.get(
+            "context_assembly_status",
+            workflow_state.get("context_assembly_status"),
+        ),
+        conversation_route=state.get("conversation_route", "project"),
+        assistant_message=state.get("assistant_message"),
     )
 
 

@@ -108,6 +108,24 @@ class ChatService:
 
         return await self._messages.list_by_conversation(conversation_id, user_id)
 
+    async def get_workflow_state(
+        self, user_id: str, conversation_id: str
+    ) -> dict:
+        conversation = await self._conversations.get_by_id(conversation_id, user_id)
+        if conversation is None:
+            raise ChatError("Conversation not found", status_code=404)
+        return conversation.workflow_state
+
+    async def save_workflow_state(
+        self, user_id: str, conversation_id: str, workflow_state: dict
+    ) -> None:
+        conversation = await self._conversations.get_by_id(conversation_id, user_id)
+        if conversation is None:
+            raise ChatError("Conversation not found", status_code=404)
+        await self._conversations.update_workflow_state(
+            conversation_id, user_id, workflow_state
+        )
+
     @staticmethod
     def _derive_title(text: str | None, files: list[UploadFile]) -> str:
         if text:

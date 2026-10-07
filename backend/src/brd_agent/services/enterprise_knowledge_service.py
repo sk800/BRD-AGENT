@@ -52,3 +52,43 @@ class EnterpriseKnowledgeService:
             }
         async with EnterpriseMCPClient.connect() as client:
             return await client.call_tool(tool_name, params or {})
+
+    async def search_for_requirement(
+        self, requirement_text: str
+    ) -> list[dict[str, Any]]:
+        """Search configured Confluence content using a safely quoted CQL phrase."""
+        async with EnterpriseMCPClient.connect() as client:
+            platforms = await client.call_tool("list_enterprise_platforms")
+            if not platforms.get("ok"):
+                raise RuntimeError(
+                    "MCP could not report configured enterprise platforms: "
+                    f"{platforms.get('error', 'unknown error')}"
+                )
+            platform_data = platforms.get("data")
+            configured = (
+                platform_data.get("confluence", {})
+                if isinstance(platform_data, dict)
+                else {}
+            )
+            if not configured.get("configured"):
+                return []
+
+            phrase = requirement_text.strip()[:200]
+            phrase = phrase.replace("\\", "\\\\").replace('"', '\\"')
+            result = await client.call_tool(
+                "confluence_search",
+                {"cql": f'text ~ "{phrase}"', "limit": 5},
+            )
+            if not result.get("ok"):
+                raise RuntimeError(
+                    "Confluence MCP search failed: "
+                    f"{result.get('error', 'unknown error')}"
+                )
+            return [
+                {
+                    "platform": "confluence",
+                    "action": "search",
+                    "params": {"query": requirement_text},
+                    "result": result,
+                }
+            ]

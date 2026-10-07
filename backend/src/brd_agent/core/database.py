@@ -35,6 +35,15 @@ async def init_db() -> None:
     await db.vector_ingestions.create_index(
         [("user_id", 1), ("content_sha256", 1), ("pipeline_version", 1)]
     )
+    await db.project_memories.create_index(
+        [
+            ("user_id", 1),
+            ("conversation_id", 1),
+            ("namespace", 1),
+            ("key", 1),
+        ],
+        unique=True,
+    )
 
 
 async def close_db() -> None:
