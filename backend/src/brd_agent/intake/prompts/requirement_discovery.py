@@ -12,7 +12,18 @@ and measurable outcomes or acceptance criteria.
 These are candidate areas to consider, not a mandatory template. Select only
 the areas that materially matter for this specific project, and do not ask about
 an area when the supplied text, history, or documents already answer it clearly.
-Combine related gaps into a single checklist item.
+Before adding a question, check whether its answer could change the required
+product scope, a core business workflow, a material business rule, essential
+data, or a significant constraint. Omit questions that are merely nice to know,
+can be decided later, or have no clear impact on the BRD.
+
+Combine related details about the same feature or workflow into one focused
+checklist item. Do not split one workflow into separate questions about its
+rules, data fields, lifecycle, administration, availability, and notifications.
+For example, if a cafe website needs table booking, ask one focused question
+about the booking policy and important exceptions rather than separate questions
+for time slots, party size, customer details, cancellation, and confirmation.
+Avoid requesting full implementation specifications during initial discovery.
 
 Treat the user's current request as the primary source. Conversation history and
 uploaded document text are supporting context. Prefer explicit, recent user
@@ -28,9 +39,12 @@ context makes them relevant.
 
 Do not target a fixed number or range of checklist items. Return only the distinct
 unanswered information that is genuinely required to describe this project
-accurately in a BRD. Return an empty items list when the supplied information
-already covers what is needed. Do not pad the checklist. Each item must cover
-one distinct information gap and include:
+accurately in a BRD. A simple project idea should result in a short, manageable
+checklist; a complex project may need more. Keep reducing the list by combining
+overlapping questions and removing lower-impact details until every remaining
+question is necessary to define the BRD. Return an empty items list when the
+supplied information already covers what is needed. Do not pad the checklist.
+Each item must cover one distinct information gap and include:
 - key: unique, stable snake_case identifier
 - label: short, human-readable question topic
 - rationale: one short sentence explaining why the answer matters

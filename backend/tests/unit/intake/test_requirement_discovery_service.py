@@ -57,6 +57,9 @@ async def test_discovery_builds_a_concise_valid_checklist():
     assert "do not pad the checklist" in system_prompt
     assert "fixed number or range" in system_prompt
     assert "never more than 8" not in system_prompt
+    assert "do not split one workflow" in system_prompt
+    assert "short, manageable" in system_prompt
+    assert "time slots, party size" in system_prompt
 
 
 @pytest.mark.asyncio
