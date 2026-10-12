@@ -95,6 +95,15 @@ class VectorIngestionService:
             existing = await self._vector_repo.find_by_key(key)
             if existing is not None:
                 skipped_attachments += 1
+                reassociated = self._lance.reassociate_conversation(
+                    user_id=user_id,
+                    content_sha256=content_sha256,
+                    conversation_id=conversation_id,
+                    message_id=message_id,
+                    attachment_id=attachment_id,
+                )
+                if reassociated:
+                    ingested_vectors += reassociated
                 log_lance_ingestion_skipped(
                     attachment_id=attachment_id,
                     status="skipped_duplicate",
@@ -104,9 +113,12 @@ class VectorIngestionService:
                 results.append(
                     {
                         "attachment_id": attachment_id,
-                        "status": "skipped_duplicate",
+                        "status": "reassociated"
+                        if reassociated
+                        else "skipped_duplicate",
                         "ingestion_key": key,
                         "pipeline_version": pipeline,
+                        "vector_count": reassociated,
                     }
                 )
                 continue

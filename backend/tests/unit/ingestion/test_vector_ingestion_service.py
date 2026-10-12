@@ -31,9 +31,19 @@ async def test_vector_ingestion_skips_duplicate_file(monkeypatch, tmp_path):
         "brd_agent.services.vector_ingestion_service.embed_texts",
         fake_embed,
     )
+    upsert_calls = []
+
+    def fake_upsert(self, rows):
+        upsert_calls.append(len(rows))
+        return len(rows)
+
     monkeypatch.setattr(
         "brd_agent.services.vector_ingestion_service.LanceChunkStore.upsert_chunks",
-        lambda self, rows: len(rows),
+        fake_upsert,
+    )
+    monkeypatch.setattr(
+        "brd_agent.services.vector_ingestion_service.LanceChunkStore.reassociate_conversation",
+        lambda self, **kwargs: 1,
     )
 
     attachments = [
@@ -71,5 +81,6 @@ async def test_vector_ingestion_skips_duplicate_file(monkeypatch, tmp_path):
 
     assert first["vector_ingestion_status"] == "done"
     assert first["vectors_ingested"] == 1
-    assert second["vector_ingestion_status"] == "skipped_duplicate"
-    assert second["vectors_ingested"] == 0
+    assert second["vector_ingestion_status"] == "done"
+    assert second["vectors_ingested"] == 1
+    assert second["vector_ingestion_results"][0]["status"] == "reassociated"

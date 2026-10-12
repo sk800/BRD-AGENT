@@ -42,3 +42,45 @@ class LanceChunkStore:
         )
         logger.info("Upserted %s rows into LanceDB table %s", len(rows), TABLE_NAME)
         return len(rows)
+
+    def reassociate_conversation(
+        self,
+        *,
+        user_id: str,
+        content_sha256: str,
+        conversation_id: str,
+        message_id: str,
+        attachment_id: str,
+    ) -> int:
+        """Point existing vectors at a new conversation (same file re-uploaded)."""
+
+        if TABLE_NAME not in self._db.table_names():
+            return 0
+
+        table = self._db.open_table(TABLE_NAME)
+        df = table.to_pandas()
+        mask = (df["user_id"] == user_id) & (df["content_sha256"] == content_sha256)
+        subset = df.loc[mask]
+        if subset.empty:
+            return 0
+
+        rows: list[dict[str, Any]] = []
+        for record in subset.to_dict(orient="records"):
+            rows.append(
+                {
+                    **record,
+                    "conversation_id": conversation_id,
+                    "message_id": message_id,
+                    "attachment_id": attachment_id,
+                }
+            )
+
+        count = self.upsert_chunks(rows)
+        logger.info(
+            "Reassociated %s LanceDB rows for user=%s file=%s → conversation=%s",
+            count,
+            user_id,
+            content_sha256[:12],
+            conversation_id,
+        )
+        return count

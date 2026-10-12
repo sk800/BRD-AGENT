@@ -14,12 +14,12 @@ from brd_agent.api.schemas.chat import (
     ChunkResponse,
     ExtractionErrorResponse,
     MessageListResponse,
+    MessageRequirementsResponse,
     MessageResponse,
     RequirementDiscoveryResponse,
     SendMessageResponse,
 )
 from brd_agent.api.schemas.brd import EnterpriseSourceSpec
-from brd_agent.agents.graph.requirements_graph import run_requirements
 from brd_agent.core.exceptions import ChatError
 from brd_agent.domain.models.chat import ConversationInDB, MessageInDB
 from brd_agent.domain.models.user import UserPublic
@@ -86,6 +86,22 @@ def _to_message_response(message: MessageInDB) -> MessageResponse:
     )
 
 
+def _requirements_from_state(state: dict) -> MessageRequirementsResponse | None:
+    if not state:
+        return None
+    return MessageRequirementsResponse(
+        requirement_checklist=state.get("requirement_checklist", []),
+        brd_requirement_points=state.get("brd_requirement_points", {}),
+        requirement_checklist_status=state.get(
+            "requirement_checklist_status", "skipped"
+        ),
+        assembled_checklist_context=state.get("assembled_checklist_context", []),
+        context_assembly_status=state.get("context_assembly_status"),
+        conversation_route=state.get("conversation_route", "project"),
+        assistant_message=state.get("assistant_message"),
+    )
+
+
 @router.post("/messages", response_model=SendMessageResponse, status_code=status.HTTP_201_CREATED)
 async def send_message(
     current_user: Annotated[UserPublic, Depends(get_current_user)],
@@ -95,7 +111,7 @@ async def send_message(
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> SendMessageResponse:
     try:
-        conversation, message = await chat_service.send_message(
+        conversation, message, requirements_state = await chat_service.send_message(
             user_id=current_user.id,
             text=text,
             files=files or [],
@@ -107,6 +123,7 @@ async def send_message(
     return SendMessageResponse(
         conversation=_to_conversation_response(conversation),
         message=_to_message_response(message),
+        requirements=_requirements_from_state(requirements_state),
     )
 
 
@@ -154,77 +171,28 @@ async def discover_requirements(
             )
 
     try:
-        conversation, message = await chat_service.send_message(
+        conversation, message, state = await chat_service.send_message(
             user_id=current_user.id,
             text=text,
             files=files or [],
             conversation_id=conversation_id,
-        )
-        messages = await chat_service.list_messages(current_user.id, conversation.id)
-        workflow_state = await chat_service.get_workflow_state(
-            current_user.id, conversation.id
+            enterprise_sources=[item.model_dump() for item in enterprise_sources],
+            retrieval_top_k=retrieval_top_k,
         )
     except ChatError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
-    state = await run_requirements(
-        request=text,
-        chunks=[chunk for chunk in message.chunks],
-        user_id=current_user.id,
-        conversation_id=conversation.id,
-        prior_checklist=workflow_state.get("requirement_checklist", []),
-        enterprise_sources=[item.model_dump() for item in enterprise_sources],
-        retrieval_top_k=retrieval_top_k,
-        conversation_history=[
-            {"role": item.role, "text": item.text or ""}
-            for item in messages
-            if item.id != message.id and item.text
-        ]
-        + (
-            [
-                {
-                    "role": "assistant",
-                    "text": workflow_state["assistant_message"],
-                }
-            ]
-            if workflow_state.get("assistant_message")
-            else []
-        ),
-    )
-
-    if state.get("conversation_route") != "redirect":
-        await chat_service.save_workflow_state(
-            current_user.id,
-            conversation.id,
-            {
-                "requirement_checklist": state.get("requirement_checklist", []),
-                "requirement_checklist_status": state.get(
-                    "requirement_checklist_status", "failed"
-                ),
-                "assembled_checklist_context": state.get(
-                    "assembled_checklist_context", []
-                ),
-                "context_assembly_status": state.get("context_assembly_status"),
-                "assistant_message": state.get("assistant_message"),
-            },
-        )
-
-    previous_context = workflow_state.get("assembled_checklist_context", [])
     return RequirementDiscoveryResponse(
         conversation_id=conversation.id,
         message_id=message.id,
         requirement_checklist=state.get("requirement_checklist", []),
+        brd_requirement_points=state.get("brd_requirement_points", {}),
         requirement_checklist_status=state.get(
             "requirement_checklist_status",
-            "failed",
+            "skipped",
         ),
-        assembled_checklist_context=state.get(
-            "assembled_checklist_context", previous_context
-        ),
-        context_assembly_status=state.get(
-            "context_assembly_status",
-            workflow_state.get("context_assembly_status"),
-        ),
+        assembled_checklist_context=state.get("assembled_checklist_context", []),
+        context_assembly_status=state.get("context_assembly_status"),
         conversation_route=state.get("conversation_route", "project"),
         assistant_message=state.get("assistant_message"),
     )

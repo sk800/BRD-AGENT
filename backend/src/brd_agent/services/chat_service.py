@@ -1,7 +1,10 @@
+from typing import Any
+
 from fastapi import UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from brd_agent.agents.graph import run_ingestion
+from brd_agent.agents.graph.requirements_graph import run_requirements
 from brd_agent.core.config import get_settings
 from brd_agent.core.exceptions import ChatError
 from brd_agent.core.logging import log_extraction_results
@@ -23,7 +26,12 @@ class ChatService:
         text: str | None,
         files: list[UploadFile],
         conversation_id: str | None = None,
-    ) -> tuple[ConversationInDB, MessageInDB]:
+        *,
+        enterprise_sources: list[dict[str, Any]] | None = None,
+        retrieval_top_k: int | None = None,
+    ) -> tuple[ConversationInDB, MessageInDB, dict[str, Any]]:
+        """Save message, ingest uploads into the vector DB, then run requirement gathering."""
+
         normalized_text = text.strip() if text and text.strip() else None
 
         if normalized_text is None and not files:
@@ -90,9 +98,77 @@ class ChatService:
             if updated_message is not None:
                 message = updated_message
 
+        requirements_state: dict[str, Any] = {}
+        if normalized_text or message.chunks:
+            requirements_state = await self._run_requirement_workflow(
+                user_id=user_id,
+                conversation=conversation,
+                message=message,
+                request_text=normalized_text,
+                enterprise_sources=enterprise_sources,
+                retrieval_top_k=retrieval_top_k,
+            )
+
         await self._conversations.touch(conversation.id)
 
-        return conversation, message
+        return conversation, message, requirements_state
+
+    async def _run_requirement_workflow(
+        self,
+        *,
+        user_id: str,
+        conversation: ConversationInDB,
+        message: MessageInDB,
+        request_text: str | None,
+        enterprise_sources: list[dict[str, Any]] | None = None,
+        retrieval_top_k: int | None = None,
+    ) -> dict[str, Any]:
+        workflow_state = conversation.workflow_state or {}
+        messages = await self.list_messages(user_id, conversation.id)
+        conversation_history = [
+            {"role": item.role, "text": item.text or ""}
+            for item in messages
+            if item.id != message.id and item.text
+        ]
+        if workflow_state.get("assistant_message"):
+            conversation_history.append(
+                {
+                    "role": "assistant",
+                    "text": workflow_state["assistant_message"],
+                }
+            )
+
+        state = await run_requirements(
+            request=request_text,
+            chunks=list(message.chunks or []),
+            user_id=user_id,
+            conversation_id=conversation.id,
+            message_id=message.id,
+            prior_checklist=workflow_state.get("requirement_checklist", []),
+            enterprise_sources=enterprise_sources or [],
+            retrieval_top_k=retrieval_top_k,
+            conversation_history=conversation_history,
+        )
+
+        if state.get("conversation_route") != "redirect":
+            await self.save_workflow_state(
+                user_id,
+                conversation.id,
+                {
+                    "requirement_checklist": state.get("requirement_checklist", []),
+                    "requirement_checklist_status": state.get(
+                        "requirement_checklist_status", "failed"
+                    ),
+                    "assembled_checklist_context": state.get(
+                        "assembled_checklist_context", []
+                    ),
+                    "context_assembly_status": state.get("context_assembly_status"),
+                    "assistant_message": state.get("assistant_message"),
+                    "brd_requirement_points": state.get("brd_requirement_points", {}),
+                },
+            )
+
+        return state
 
     async def list_conversations(self, user_id: str) -> list[ConversationInDB]:
         return await self._conversations.list_by_user(user_id)

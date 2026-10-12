@@ -12,7 +12,7 @@ from brd_agent.core.config import get_settings
 
 class ConfluenceConfigurationError(RuntimeError):
     pass
-
+ 
 
 def _strip_html(html: str) -> str:
     text = re.sub(r"<[^>]+>", " ", html)
@@ -20,7 +20,7 @@ def _strip_html(html: str) -> str:
 
 
 class ConfluenceClient:
-    def __init__(
+    def __init__( 
         self,
         *,
         base_url: str | None = None,

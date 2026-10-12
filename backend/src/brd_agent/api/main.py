@@ -21,8 +21,28 @@ logging.basicConfig(
 )
 
 
+def _log_azure_openai_config() -> None:
+    logger = logging.getLogger("brd_agent.api")
+    endpoint = settings.azure_openai_endpoint.strip()
+    deployment = settings.azure_openai_deployment.strip()
+    has_key = bool(settings.azure_openai_api_key.strip())
+    if endpoint and deployment and has_key:
+        logger.info(
+            "Azure OpenAI ready | deployment=%s api_version=%s",
+            deployment,
+            settings.azure_openai_api_version,
+        )
+    else:
+        logger.warning(
+            "Azure OpenAI not configured — set AZURE_OPENAI_ENDPOINT, "
+            "AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT in .env "
+            "(requirements / clarification will fail until then)"
+        )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    _log_azure_openai_config()
     await FileStorageService().ensure_upload_dir()
     LanceChunkStore()
     await init_db()

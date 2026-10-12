@@ -3,6 +3,7 @@
 from typing import Any
 
 from brd_agent.agents.state import AgentState
+from brd_agent.intake.checklist import checklist_to_brd_points
 from brd_agent.intake.services.requirement_discovery_service import (
     RequirementDiscoveryService,
 )
@@ -35,6 +36,7 @@ async def requirements_node(
     if not request and not document_context:
         return {
             "requirement_checklist": [],
+            "brd_requirement_points": {},
             "requirement_checklist_status": "skipped",
             "current_stage": "requirements",
         }
@@ -79,6 +81,7 @@ async def requirements_node(
     if discovery["route"] == "redirect":
         return {
             "requirement_checklist": prior_checklist,
+            "brd_requirement_points": checklist_to_brd_points(prior_checklist),
             "requirement_checklist_status": "unchanged",
             "conversation_route": "redirect",
             "assistant_message": discovery["redirect_message"],
@@ -92,6 +95,7 @@ async def requirements_node(
     checklist = list(merged.values())
     return {
         "requirement_checklist": checklist,
+        "brd_requirement_points": checklist_to_brd_points(checklist),
         "requirement_checklist_status": "ready",
         "conversation_route": "project",
         "current_stage": "requirements",

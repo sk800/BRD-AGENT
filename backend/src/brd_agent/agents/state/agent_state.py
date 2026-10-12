@@ -36,6 +36,7 @@ class AgentState(TypedDict, total=False):
     # Requirement discovery and context assembly
     requirement_text: str | None
     requirement_checklist: list[dict[str, Any]]
+    brd_requirement_points: dict[str, dict[str, Any]]
     requirement_checklist_status: str
     prior_checklist: list[dict[str, Any]]
     conversation_route: str

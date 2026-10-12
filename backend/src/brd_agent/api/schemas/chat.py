@@ -53,15 +53,27 @@ class ConversationResponse(BaseModel):
     updated_at: datetime
 
 
+class MessageRequirementsResponse(BaseModel):
+    requirement_checklist: list[dict] = Field(default_factory=list)
+    brd_requirement_points: dict[str, dict] = Field(default_factory=dict)
+    requirement_checklist_status: str = "skipped"
+    assembled_checklist_context: list[dict] = Field(default_factory=list)
+    context_assembly_status: str | None = None
+    conversation_route: str = "project"
+    assistant_message: str | None = None
+
+
 class SendMessageResponse(BaseModel):
     conversation: ConversationResponse
     message: MessageResponse
+    requirements: MessageRequirementsResponse | None = None
 
 
 class RequirementDiscoveryResponse(BaseModel):
     conversation_id: str
     message_id: str
     requirement_checklist: list[dict]
+    brd_requirement_points: dict[str, dict] = Field(default_factory=dict)
     requirement_checklist_status: str
     assembled_checklist_context: list[dict] = Field(default_factory=list)
     context_assembly_status: str | None = None

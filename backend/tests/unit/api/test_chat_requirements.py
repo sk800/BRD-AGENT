@@ -10,29 +10,11 @@ class FakeChatService:
     def __init__(self):
         self.workflow_state = {}
         self.saved_state = None
+        self.last_send_kwargs = None
 
     async def send_message(self, **kwargs):
-        return (
-            SimpleNamespace(id="conversation-1"),
-            SimpleNamespace(id="message-1", chunks=[]),
-        )
-
-    async def list_messages(self, user_id, conversation_id):
-        return []
-
-    async def get_workflow_state(self, user_id, conversation_id):
-        return self.workflow_state
-
-    async def save_workflow_state(self, user_id, conversation_id, workflow_state):
-        self.saved_state = workflow_state
-
-
-@pytest.mark.asyncio
-async def test_requirements_endpoint_returns_and_persists_assessed_checklist(monkeypatch):
-    async def fake_run_requirements(**kwargs):
-        assert kwargs["user_id"] == "user-1"
-        assert kwargs["conversation_id"] == "conversation-1"
-        return {
+        self.last_send_kwargs = kwargs
+        state = {
             "requirement_checklist": [
                 {
                     "key": "target_users",
@@ -41,14 +23,27 @@ async def test_requirements_endpoint_returns_and_persists_assessed_checklist(mon
                     "clarification_question": "Who is the primary audience?",
                 }
             ],
+            "brd_requirement_points": {
+                "target_users": {
+                    "label": "Who will use it?",
+                    "status": "missing",
+                }
+            },
             "requirement_checklist_status": "ready",
             "assembled_checklist_context": [{"key": "target_users"}],
             "context_assembly_status": "needs_user_input",
             "conversation_route": "project",
             "assistant_message": "Who is the primary audience?",
         }
+        return (
+            SimpleNamespace(id="conversation-1"),
+            SimpleNamespace(id="message-1", chunks=[]),
+            state,
+        )
 
-    monkeypatch.setattr(chat, "run_requirements", fake_run_requirements)
+
+@pytest.mark.asyncio
+async def test_requirements_endpoint_returns_checklist_from_unified_send_message():
     service = FakeChatService()
     response = await chat.discover_requirements(
         current_user=SimpleNamespace(id="user-1"),
@@ -59,7 +54,7 @@ async def test_requirements_endpoint_returns_and_persists_assessed_checklist(mon
     assert response.requirement_checklist[0]["status"] == "missing"
     assert response.assistant_message == "Who is the primary audience?"
     assert response.context_assembly_status == "needs_user_input"
-    assert service.saved_state["requirement_checklist"][0]["key"] == "target_users"
+    assert service.last_send_kwargs["text"] == "Build a cafe website"
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 from typing import Any
 
 from brd_agent.agents.state import AgentState
+from brd_agent.intake.checklist import checklist_to_brd_points
 from brd_agent.orchestration.context_assembly_service import (
     ContentAssemblyService,
     EnterpriseSourceRequest,
@@ -83,6 +84,7 @@ async def context_assembly_node(state: AgentState) -> dict[str, Any]:
         return {
             "assembled_context": assembled,
             "requirement_checklist": checklist_summary,
+            "brd_requirement_points": checklist_to_brd_points(checklist_summary),
             "assembled_checklist_context": assembled["items"],
             "context_assembly_status": assembled["status"],
             "assistant_message": assistant_message,

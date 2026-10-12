@@ -11,6 +11,7 @@ from brd_agent.agents.nodes.project_memory import (
     project_memory_read_node,
     project_memory_update_node,
 )
+from brd_agent.core.logging.requirement_logger import log_requirements_workflow
 
 
 def _after_requirements(state: AgentState) -> str:
@@ -42,11 +43,12 @@ async def run_requirements(
     conversation_history: list[dict[str, str]] | None = None,
     user_id: str | None = None,
     conversation_id: str | None = None,
+    message_id: str | None = None,
     prior_checklist: list[dict[str, Any]] | None = None,
     enterprise_sources: list[dict[str, Any]] | None = None,
     retrieval_top_k: int | None = None,
 ) -> dict[str, Any]:
-    return await get_requirements_graph().ainvoke(
+    state = await get_requirements_graph().ainvoke(
         {
             "current_user_text": request,
             "chunks": chunks or [],
@@ -58,3 +60,12 @@ async def run_requirements(
             "retrieval_top_k": retrieval_top_k,
         }
     )
+    log_requirements_workflow(
+        user_id=user_id or "",
+        conversation_id=conversation_id or "",
+        message_id=message_id,
+        user_query=request,
+        chunk_count=len(chunks or []),
+        workflow_state=state,
+    )
+    return state

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from brd_agent.core.config import get_settings
 from brd_agent.ingestion.pipeline.embedding.bge_embedder import embed_texts
 from brd_agent.ingestion.vector.lancedb_store import LanceChunkStore, TABLE_NAME
 
@@ -40,14 +41,59 @@ class VectorRetrievalService:
         if not vectors:
             return []
 
-        table = self._store._db.open_table(TABLE_NAME)
+        hits = self._search(
+            table=self._store._db.open_table(TABLE_NAME),
+            query_vector=vectors[0],
+            user_id=user_id,
+            conversation_id=conversation_id,
+            top_k=top_k,
+        )
+
+        settings = get_settings()
+        if (
+            not hits
+            and conversation_id
+            and settings.context_retrieval_fallback_to_user
+        ):
+            hits = self._search(
+                table=self._store._db.open_table(TABLE_NAME),
+                query_vector=vectors[0],
+                user_id=user_id,
+                conversation_id=None,
+                top_k=top_k,
+            )
+            logger.info(
+                "Vector retrieval fallback (user scope) | user=%s hits=%s",
+                user_id,
+                len(hits),
+            )
+
+        logger.info(
+            "Vector retrieval | user=%s conversation=%s hits=%s",
+            user_id,
+            conversation_id,
+            len(hits),
+        )
+        return hits
+
+    def _search(
+        self,
+        *,
+        table: Any,
+        query_vector: list[float],
+        user_id: str,
+        conversation_id: str | None,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
         uid = _escape_literal(user_id)
         filter_expr = f"user_id = '{uid}'"
         if conversation_id:
             cid = _escape_literal(conversation_id)
             filter_expr = f"{filter_expr} AND conversation_id = '{cid}'"
 
-        search = table.search(vectors[0]).where(filter_expr).limit(max(1, min(top_k, 50)))
+        search = table.search(query_vector).where(filter_expr).limit(
+            max(1, min(top_k, 50))
+        )
         df = search.to_pandas()
 
         hits: list[dict[str, Any]] = []
@@ -61,17 +107,11 @@ class VectorRetrievalService:
                     "heading": row.get("heading"),
                     "attachment_id": row.get("attachment_id"),
                     "message_id": row.get("message_id"),
+                    "conversation_id": row.get("conversation_id"),
                     "text": row.get("text"),
                     "distance": float(row.get("_distance", 0.0))
                     if row.get("_distance") is not None
                     else None,
                 }
             )
-
-        logger.info(
-            "Vector retrieval | user=%s conversation=%s hits=%s",
-            user_id,
-            conversation_id,
-            len(hits),
-        )
         return hits

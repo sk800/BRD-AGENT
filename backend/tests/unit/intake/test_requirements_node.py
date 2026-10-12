@@ -43,6 +43,9 @@ async def test_node_combines_request_history_and_uploaded_document_chunks():
     assert "Customers often ask about the menu by phone." in service.discovery_input
     assert result["requirement_checklist_status"] == "ready"
     assert result["requirement_checklist"][0]["key"] == "visitor_actions"
+    assert result["brd_requirement_points"]["visitor_actions"]["label"] == (
+        "What visitors should do"
+    )
     assert result["conversation_route"] == "project"
 
 
