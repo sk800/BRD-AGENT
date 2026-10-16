@@ -32,3 +32,31 @@ def test_extract_scanned_pdf_uses_pipeline_and_returns_page_metadata(tmp_path, m
 	assert result["elements"][0]["type"] == "paragraph"
 	assert result["elements"][0]["content"] == "Scanned requirement"
 	assert result["elements"][0]["location"]["page"] == 1
+
+
+def test_extract_scanned_pdf_falls_back_to_tesseract_when_layout_ocr_is_unavailable(
+    tmp_path,
+    monkeypatch,
+):
+    source = tmp_path / "scanned.pdf"
+    document = fitz.open()
+    document.new_page()
+    document.save(source)
+    document.close()
+    monkeypatch.setattr(
+        scanned_pdf,
+        "_get_pipeline",
+        lambda: (_ for _ in ()).throw(ModuleNotFoundError("paddleocr")),
+    )
+    monkeypatch.setattr(
+        scanned_pdf,
+        "_tesseract_text",
+        lambda _path: "Scanned requirement",
+    )
+    monkeypatch.setattr(scanned_pdf, "OUTPUT_DIR", tmp_path / "output")
+    (tmp_path / "output").mkdir()
+
+    result = scanned_pdf.extract_scanned_pdf(str(source))
+
+    assert result["elements"][0]["content"] == "Scanned requirement"
+    assert result["elements"][0]["location"]["page"] == 1

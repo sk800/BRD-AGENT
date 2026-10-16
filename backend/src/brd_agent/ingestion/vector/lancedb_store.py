@@ -43,6 +43,37 @@ class LanceChunkStore:
         logger.info("Upserted %s rows into LanceDB table %s", len(rows), TABLE_NAME)
         return len(rows)
 
+    def delete_obsolete_file_chunks(
+        self,
+        *,
+        user_id: str,
+        content_sha256: str,
+        pipeline_version: str,
+    ) -> int:
+        """Remove superseded vectors for this file after its new vectors are stored."""
+
+        if TABLE_NAME not in self._db.table_names():
+            return 0
+
+        table = self._db.open_table(TABLE_NAME)
+        user = user_id.replace("'", "''")
+        fingerprint = content_sha256.replace("'", "''")
+        version = pipeline_version.replace("'", "''")
+        predicate = (
+            f"user_id = '{user}' AND content_sha256 = '{fingerprint}' "
+            f"AND pipeline_version != '{version}'"
+        )
+        count = table.count_rows(filter=predicate)
+        if count:
+            table.delete(predicate)
+            logger.info(
+                "Deleted %s obsolete LanceDB rows for user=%s file=%s",
+                count,
+                user_id,
+                content_sha256[:12],
+            )
+        return count
+
     def reassociate_conversation(
         self,
         *,

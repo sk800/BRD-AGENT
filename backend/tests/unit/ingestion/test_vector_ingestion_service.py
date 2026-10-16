@@ -45,6 +45,10 @@ async def test_vector_ingestion_skips_duplicate_file(monkeypatch, tmp_path):
         "brd_agent.services.vector_ingestion_service.LanceChunkStore.reassociate_conversation",
         lambda self, **kwargs: 1,
     )
+    monkeypatch.setattr(
+        "brd_agent.services.vector_ingestion_service.LanceChunkStore.delete_obsolete_file_chunks",
+        lambda self, **kwargs: 0,
+    )
 
     attachments = [
         {

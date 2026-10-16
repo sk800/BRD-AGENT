@@ -58,6 +58,12 @@ def _run_paddle_ocr(path: Path) -> list[str]:
     return texts
 
 
+def _run_tesseract_ocr(path: Path) -> str:
+    import pytesseract
+
+    return _clean(pytesseract.image_to_string(str(path)))
+
+
 def _extract_ocr_text(path: Path) -> tuple[str, str | None, str | None]:
     """Return OCR text, engine name, and optional warning message."""
 
@@ -67,16 +73,24 @@ def _extract_ocr_text(path: Path) -> tuple[str, str | None, str | None]:
         if ocr_text:
             return ocr_text, "paddleocr", None
         return "", "paddleocr", "No text detected in image"
-    except ModuleNotFoundError:
-        warning = (
-            "paddleocr is not installed. Install with: pip install -e \".[layout]\""
-        )
-        logger.warning("PaddleOCR unavailable for %s: %s", path.name, warning)
-        return "", None, warning
     except Exception as exc:
-        warning = str(exc)
-        logger.warning("PaddleOCR failed for %s: %s", path.name, warning)
-        return "", None, warning
+        try:
+            ocr_text = _run_tesseract_ocr(path)
+        except Exception as fallback_exc:
+            warning = (
+                f"PaddleOCR failed: {exc}; Tesseract fallback failed: "
+                f"{fallback_exc}"
+            )
+            logger.warning("Image OCR failed for %s: %s", path.name, warning)
+            return "", None, warning
+
+        if ocr_text:
+            logger.info("Used Tesseract OCR fallback for %s", path.name)
+            return ocr_text, "tesseract", None
+
+        warning = f"PaddleOCR failed: {exc}; Tesseract detected no text"
+        logger.warning("Image OCR failed for %s: %s", path.name, warning)
+        return "", "tesseract", warning
 
 
 def extract_image(file_path: str) -> dict:

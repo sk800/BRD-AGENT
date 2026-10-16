@@ -102,6 +102,11 @@ class VectorIngestionService:
                     message_id=message_id,
                     attachment_id=attachment_id,
                 )
+                self._lance.delete_obsolete_file_chunks(
+                    user_id=user_id,
+                    content_sha256=content_sha256,
+                    pipeline_version=pipeline,
+                )
                 if reassociated:
                     ingested_vectors += reassociated
                 log_lance_ingestion_skipped(
@@ -173,6 +178,11 @@ class VectorIngestionService:
 
             log_lance_ingestion_rows(rows)
             count = self._lance.upsert_chunks(rows)
+            self._lance.delete_obsolete_file_chunks(
+                user_id=user_id,
+                content_sha256=content_sha256,
+                pipeline_version=pipeline,
+            )
             ingested_vectors += count
 
             await self._vector_repo.register(

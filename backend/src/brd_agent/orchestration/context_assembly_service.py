@@ -144,7 +144,7 @@ class ContentAssemblyService:
                 user_id=user_id,
                 conversation_id=conversation_id,
                 query=requirement,
-                top_k=min(top_k, 3),
+                top_k=top_k,
             )
             enterprise_knowledge = await self._enterprise.search_for_requirement(
                 requirement

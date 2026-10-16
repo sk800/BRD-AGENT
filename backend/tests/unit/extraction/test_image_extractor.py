@@ -102,4 +102,31 @@ def test_extract_image_returns_empty_ocr_text_when_ocr_fails(
 
     content = result["elements"][0]["content"]
     assert content["ocr_text"] == ""
-    assert content["ocr_warning"] == "OCR unavailable"
+    assert "OCR unavailable" in content["ocr_warning"]
+
+
+def test_extract_image_falls_back_to_tesseract_when_paddle_is_unavailable(
+    tmp_path,
+    monkeypatch,
+):
+    source = tmp_path / "requirements.png"
+    Image.new("RGB", (20, 20), "white").save(source)
+    monkeypatch.setattr(
+        image_extractor,
+        "_run_paddle_ocr",
+        lambda _path: (_ for _ in ()).throw(ModuleNotFoundError("paddleocr")),
+    )
+    monkeypatch.setattr(
+        image_extractor,
+        "_run_tesseract_ocr",
+        lambda _path: "Document Upload High Priority",
+    )
+    monkeypatch.setattr(image_extractor, "IMAGE_OUTPUT_DIR", tmp_path / "output")
+    (tmp_path / "output").mkdir()
+
+    result = image_extractor.extract_image(str(source))
+
+    content = result["elements"][0]["content"]
+    assert content["ocr_text"] == "Document Upload High Priority"
+    assert content["ocr_engine"] == "tesseract"
+    assert content["ocr_warning"] is None

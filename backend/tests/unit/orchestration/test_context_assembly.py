@@ -76,9 +76,11 @@ async def test_assemble_rejects_invalid_retrieval_limit():
 @pytest.mark.asyncio
 async def test_checklist_assembly_retrieves_and_assesses_each_item(monkeypatch):
     queries = []
+    top_ks = []
 
     async def fake_search(self, **kwargs):
         queries.append(kwargs["query"])
+        top_ks.append(kwargs["top_k"])
         return [{"text": f"Evidence for {kwargs['query']}"}]
 
     class FakeEnterprise:
@@ -122,9 +124,11 @@ async def test_checklist_assembly_retrieves_and_assesses_each_item(monkeypatch):
             {"key": "scope", "label": "What is in scope?", "status": "missing"},
         ],
         conversation=[{"role": "user", "text": "Build a cafe site."}],
+        retrieval_top_k=12,
     )
 
     assert queries == ["Who are the users?", "What is in scope?"]
+    assert top_ks == [12, 12]
     assert [item["status"] for item in result["items"]] == [
         "answered",
         "needs_clarification",

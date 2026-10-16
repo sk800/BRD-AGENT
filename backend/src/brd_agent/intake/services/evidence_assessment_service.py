@@ -55,7 +55,7 @@ class EvidenceAssessmentService:
                             "chunk_id": chunk.get("chunk_id"),
                             "text": str(chunk.get("text", ""))[:1500],
                         }
-                        for chunk in item.get("uploaded_document_chunks", [])[:3]
+                        for chunk in item.get("uploaded_document_chunks", [])
                     ],
                     "enterprise_knowledge": [
                         {

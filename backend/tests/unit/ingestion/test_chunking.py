@@ -4,6 +4,9 @@ from brd_agent.ingestion.pipeline.chunking.parent_child import (
 from brd_agent.ingestion.pipeline.chunking.recursive import (
     structure_aware_recursive,
 )
+from brd_agent.ingestion.pipeline.embedding.chunk_selection import (
+    chunks_for_embedding,
+)
 
 
 def sample_elements():
@@ -124,3 +127,119 @@ def test_recursive_chunking():
     for chunk in chunks:
         assert "heading" in chunk["metadata"]
         assert "section_index" in chunk["metadata"]
+
+
+def test_parent_child_keeps_conversation_messages_in_separate_chunks():
+    elements = [
+        {"type": "heading", "content": "Project discussion"},
+        {
+            "type": "paragraph",
+            "content": "[00:01:00] Alex: Agents need ticket assignment.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[00:02:00] Blair: Lunch is at noon.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[00:03:00] Alex: Team leads may mark urgent.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[00:04:00] Blair: The printer is still broken.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[00:05:00] Alex: Keep an audit trail.",
+        },
+    ]
+
+    chunks = chunks_for_embedding(structure_aware_parent_child(elements))
+    texts = [chunk["text"] for chunk in chunks]
+
+    assert len(texts) == 5
+    assert any("Team leads may mark urgent" in text for text in texts)
+    assert not any(
+        "Team leads may mark urgent" in text and "printer is still broken" in text
+        for text in texts
+    )
+
+
+def test_parent_child_keeps_whatsapp_messages_in_separate_chunks():
+    elements = [
+        {"type": "heading", "content": "Clinic group chat"},
+        {
+            "type": "paragraph",
+            "content": (
+                "[22/08/26, 9:00 am] Alex: Patients book online. "
+                "[22/08/26, 9:05 am] Blair: New patient slots are 20 minutes."
+            ),
+        },
+        {
+            "type": "paragraph",
+            "content": "[22/08/26, 9:10 am] Alex: Reminder time is undecided.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[22/08/26, 9:15 am] Blair: Use the current patient ID.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[22/08/26, 9:20 am] Alex: We need a clinic report.",
+        },
+        {
+            "type": "paragraph",
+            "content": "[22/08/26, 9:25 am] Blair: Thank you.",
+        },
+    ]
+
+    chunks = chunks_for_embedding(structure_aware_parent_child(elements))
+    message_chunks = [
+        chunk
+        for chunk in chunks
+        if "Patients book online." in chunk["text"]
+        or "New patient slots are 20 minutes." in chunk["text"]
+    ]
+
+    assert len(message_chunks) == 2
+    assert all(
+        not (
+            "Patients book online." in chunk["text"]
+            and "New patient slots are 20 minutes." in chunk["text"]
+        )
+        for chunk in message_chunks
+    )
+
+
+def test_parent_child_keeps_email_threads_in_separate_chunks():
+    elements = [{"type": "heading", "content": "Email export"}]
+    for index in range(5):
+        elements.extend(
+            [
+                {
+                    "type": "paragraph",
+                    "content": (
+                        f"From: person{index}@example.com To: team@example.com "
+                        f"Subject: Thread {index}"
+                    ),
+                },
+                {
+                    "type": "paragraph",
+                    "content": f"Requirement {index} must be retained.",
+                },
+                {
+                    "type": "paragraph",
+                    "content": f"Unrelated note {index}.",
+                },
+            ]
+        )
+
+    chunks = chunks_for_embedding(structure_aware_parent_child(elements))
+    texts = [chunk["text"] for chunk in chunks]
+
+    assert any("Requirement 2 must be retained." in text for text in texts)
+    assert not any(
+        "Requirement 2 must be retained." in text
+        and "Requirement 3 must be retained." in text
+        for text in texts
+    )

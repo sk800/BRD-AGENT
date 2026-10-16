@@ -76,7 +76,7 @@ POST /api/v1/chat/requirements
 
 Fields: text (optional if files are supplied), files (optional), conversation_id (optional)
 Optional fields: enterprise_sources_json (JSON list of read-only MCP sources),
-retrieval_top_k (1–50)
+retrieval_top_k (1–50; defaults to 10)
 
 `assistant_message` contains the natural next prompt or an off-topic redirection.
 Clarification questions are returned in each checklist item's
@@ -84,6 +84,14 @@ Clarification questions are returned in each checklist item's
 Submitting a reply with the same `conversation_id` re-evaluates the saved checklist.
 Conversation state and LangMem memory survive restarts; memory is isolated by
 authenticated user and conversation.
+
+Timestamped chat and meeting transcripts and detected email-thread exports are
+chunked by message to keep unrelated messages out of the same retrieval chunk.
+Images and scanned PDFs use PaddleOCR when available, with Tesseract as a
+text-extraction fallback; the Tesseract executable must be installed in the
+runtime environment. Existing uploads must be uploaded again to be reindexed
+with these changes; obsolete vectors for the same user and file are removed
+after replacement vectors are stored.
 
 LangMem classifies project memories as:
 - **Episodic:** project decisions, events, and outcomes
@@ -110,6 +118,23 @@ Set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and
 `AZURE_OPENAI_API_VERSION` defaults to `2024-12-01-preview`. Set
 `LLM_MAX_COMPLETION_TOKENS` to control the output-token ceiling; LangMem's
 memory extraction uses a smaller ceiling. No live Azure calls are made by tests.
+
+### Evaluate checklist discovery
+
+From the `backend` directory, run:
+
+```bash
+python scripts/evaluate_checklist.py --output data/evals/checklist-results.json
+```
+
+The script sends three synthetic project scenarios to the configured Azure
+deployment and reports the generated checklist, expected information gaps,
+possible questions about already-specified details, and exact duplicate labels.
+Topic matches are heuristic hints only; review the checklist manually for
+relevance, completeness, redundancy, invented requirements, and clarity. The
+report contains model output, so keep it local and do not commit it. Use a
+private `backend/.env` for Azure credentials; never put credentials in the
+tracked `.env.example`.
 
 ## Getting Started
 

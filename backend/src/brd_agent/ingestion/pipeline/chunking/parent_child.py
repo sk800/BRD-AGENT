@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 
 
 HEADING_TYPES = {"heading", "title", "section", "header"}
+CONVERSATION_MESSAGE = re.compile(
+    r"\[(?:\d{2}:\d{2}:\d{2}|\d{1,2}/\d{1,2}/\d{2,4},\s*"
+    r"\d{1,2}:\d{2}\s*(?:am|pm))\]\s*[^:\n]{1,100}:",
+    re.IGNORECASE,
+)
+EMAIL_HEADER = re.compile(
+    r"^\s*From:\s*.+?\bTo:\s*.+?\b(?:Subject|Date):",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _text_from_element(element: dict[str, Any]) -> str:
@@ -57,6 +67,134 @@ def _is_heading(element: dict[str, Any]) -> bool:
     )
 
 
+def _is_conversation_document(elements: list[dict[str, Any]]) -> bool:
+    content_elements = [
+        _text_from_element(element)
+        for element in elements
+        if not _is_heading(element) and _text_from_element(element)
+    ]
+    if not content_elements:
+        return False
+
+    marked_elements = sum(
+        bool(CONVERSATION_MESSAGE.search(text))
+        for text in content_elements
+    )
+    message_count = sum(
+        len(CONVERSATION_MESSAGE.findall(text))
+        for text in content_elements
+    )
+    return message_count >= 5 and marked_elements / len(content_elements) >= 0.5
+
+
+def _split_conversation_messages(text: str) -> list[str]:
+    matches = list(CONVERSATION_MESSAGE.finditer(text))
+    if not matches:
+        return [text.strip()] if text.strip() else []
+
+    messages: list[str] = []
+    if text[: matches[0].start()].strip():
+        messages.append(text[: matches[0].start()].strip())
+    messages.extend(
+        text[match.start() : next_start].strip()
+        for match, next_start in zip(
+            matches,
+            [match.start() for match in matches[1:]] + [len(text)],
+            strict=True,
+        )
+        if text[match.start() : next_start].strip()
+    )
+    return messages
+
+
+def _build_conversation_sections(
+    elements: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+    heading: str | None = None
+
+    for element in elements:
+        text = _text_from_element(element)
+        if not text:
+            continue
+        if _is_heading(element):
+            heading = text
+            continue
+
+        for message_index, message in enumerate(_split_conversation_messages(text)):
+            sections.append(
+                {
+                    "heading": heading,
+                    "elements": [{"type": "paragraph", "content": message}],
+                    "metadata": {
+                        **(element.get("location") or {}),
+                        "message_index": message_index,
+                    },
+                }
+            )
+
+    return sections
+
+
+def _is_email_thread_document(elements: list[dict[str, Any]]) -> bool:
+    content_elements = [
+        _text_from_element(element)
+        for element in elements
+        if not _is_heading(element) and _text_from_element(element)
+    ]
+    if not content_elements:
+        return False
+
+    email_headers = sum(bool(EMAIL_HEADER.match(text)) for text in content_elements)
+    return email_headers >= 5 and email_headers / len(content_elements) >= 0.1
+
+
+def _build_email_thread_sections(
+    elements: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+    heading: str | None = None
+    current_section: dict[str, Any] | None = None
+
+    def flush() -> None:
+        nonlocal current_section
+        if current_section is not None:
+            sections.append(current_section)
+            current_section = None
+
+    for element in elements:
+        text = _text_from_element(element)
+        if not text:
+            continue
+
+        if _is_heading(element):
+            flush()
+            heading = text
+            continue
+
+        if EMAIL_HEADER.match(text):
+            flush()
+            current_section = {
+                "heading": heading,
+                "elements": [element],
+                "metadata": {
+                    **(element.get("location") or {}),
+                    "email_thread": True,
+                },
+            }
+        elif current_section is None:
+            current_section = {
+                "heading": heading,
+                "elements": [element],
+                "metadata": element.get("location") or {},
+            }
+        else:
+            current_section["elements"].append(element)
+
+    flush()
+    return sections
+
+
 def _build_sections(
     elements: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -65,6 +203,11 @@ def _build_sections(
 
     A new section starts whenever a heading is encountered.
     """
+
+    if _is_conversation_document(elements):
+        return _build_conversation_sections(elements)
+    if _is_email_thread_document(elements):
+        return _build_email_thread_sections(elements)
 
     sections: list[dict[str, Any]] = []
 

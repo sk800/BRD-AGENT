@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     lance_db_path: str = "data/lancedb"
     embedding_model: str = "BAAI/bge-small-en-v1.5"
-    embedding_pipeline_version: int = 1
+    embedding_pipeline_version: int = 3
 
     # Enterprise knowledge — Confluence
     confluence_base_url: str = ""
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     llm_max_completion_tokens: int = 16384
 
     # Context assembly (BRD generation): chunks retrieved from uploads in LanceDB
-    context_retrieval_top_k: int = 8
+    context_retrieval_top_k: int = 10
     context_retrieval_fallback_to_user: bool = True
 
 

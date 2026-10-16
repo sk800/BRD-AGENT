@@ -1,11 +1,15 @@
+import logging
 from pathlib import Path
 from uuid import uuid4
 
 import fitz
 from bs4 import BeautifulSoup
 from PIL import Image
+
 OUTPUT_DIR = Path("output/images")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+logger = logging.getLogger(__name__)
 
 pipeline = None
 
@@ -31,6 +35,12 @@ def _id():
 
 def _clean(text):
     return " ".join(str(text).split())
+
+
+def _tesseract_text(image_path):
+    import pytesseract
+
+    return _clean(pytesseract.image_to_string(str(image_path)))
 
 
 def _bbox(value):
@@ -301,9 +311,16 @@ def extract_scanned_pdf(file_path: str) -> dict:
                 results = _get_pipeline().predict(
                     str(page_image)
                 )
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Scanned PDF layout OCR failed for %s page %s: %s",
+                    path.name,
+                    page_number,
+                    exc,
+                )
                 results = []
 
+            page_elements = []
             for result in results:
 
                 data = _result_to_dict(result)
@@ -312,8 +329,6 @@ def extract_scanned_pdf(file_path: str) -> dict:
                     "parsing_res_list",
                     [],
                 )
-
-                page_elements = []
 
                 for block in parsing_blocks:
 
@@ -364,14 +379,40 @@ def extract_scanned_pdf(file_path: str) -> dict:
                         if element:
                             page_elements.append(element)
 
-                page_elements.sort(
-                    key=lambda element: (
-                        element["location"]["bbox"][1],
-                        element["location"]["bbox"][0],
+            if not page_elements:
+                try:
+                    text = _tesseract_text(page_image)
+                except Exception as exc:
+                    logger.warning(
+                        "Scanned PDF Tesseract fallback failed for %s page %s: %s",
+                        path.name,
+                        page_number,
+                        exc,
                     )
-                )
+                else:
+                    if text:
+                        element_id = _id()
+                        page_elements.append(
+                            {
+                                "element_id": element_id,
+                                "type": "paragraph",
+                                "content": text,
+                                "location": {"page": page_number},
+                                "citation": {
+                                    "page": page_number,
+                                    "element_id": element_id,
+                                },
+                            }
+                        )
 
-                elements.extend(page_elements)
+            page_elements.sort(
+                key=lambda element: (
+                    element["location"].get("bbox", [0, 0])[1],
+                    element["location"].get("bbox", [0, 0])[0],
+                )
+            )
+
+            elements.extend(page_elements)
 
     for order, element in enumerate(
         elements,
